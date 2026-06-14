@@ -55,6 +55,30 @@ You'll need a real WiiM device on your LAN to exercise the device features. Add 
 - Mark clearly in code whether it's **documented** or **community-verified**.
 - Map numeric enums in `constants.ts`; parse responses in `parse.ts`.
 
+## Versioning & releases
+
+This project follows [Semantic Versioning](https://semver.org/) (`MAJOR.MINOR.PATCH`):
+- **PATCH** — bug fixes, no behaviour change
+- **MINOR** — new backwards-compatible features
+- **MAJOR** — breaking changes
+
+**`package.json` is the single source of truth** for the version. It's injected at build time
+(`next.config.ts` → `env.APP_VERSION`) and shown in the app footer (`src/lib/version.ts`), which
+links to the matching GitHub release — so there's nothing to sync by hand.
+
+To cut a release:
+
+```bash
+./scripts/release.sh patch     # or: minor | major | 1.2.3
+```
+
+This bumps `package.json`, creates a `release: vX.Y.Z` commit + `vX.Y.Z` tag (using your repo git
+identity), pushes with tags, and publishes a GitHub release with auto-generated notes. Then rebuild
+and redeploy (`docker compose up -d --build`) so the footer shows the new version.
+
+> Keep the repo's git identity set to your public alias so commits aren't attributed to your real
+> name: `git config user.name "illiano" && git config user.email "illiano@users.noreply.github.com"`.
+
 ## Reporting issues
 
 Open a GitHub issue with your WiiM model + firmware (from the Device card), what you expected, and what happened. For security issues, see [SECURITY.md](SECURITY.md) — please don't open a public issue for vulnerabilities.
