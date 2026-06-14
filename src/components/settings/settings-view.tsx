@@ -9,6 +9,7 @@ import {
   Save,
   ShieldOff,
   QrCode,
+  LayoutGrid,
 } from "lucide-react";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,16 +18,67 @@ import { Switch } from "@/components/ui/switch";
 import { Spinner } from "@/components/ui/spinner";
 import { useToast } from "@/components/toast";
 import { apiSend, ApiError } from "@/lib/client/api";
-import { useSettings } from "@/lib/client/hooks";
+import { useSettings, type CardVisibility } from "@/lib/client/hooks";
 
 export function SettingsView({ totpEnabled }: { totpEnabled: boolean }) {
   return (
     <div className="space-y-5">
+      <DisplayCards />
       <ChangePassword />
       <TwoFactor enabled={totpEnabled} />
       <TurnstileSettings />
       <GeneralSettings />
     </div>
+  );
+}
+
+function DisplayCards() {
+  const toast = useToast();
+  const { settings, mutate } = useSettings();
+  const cards = settings?.cards;
+  const [busy, setBusy] = useState(false);
+
+  const items: { key: keyof CardVisibility; label: string }[] = [
+    { key: "nowPlaying", label: "Now Playing" },
+    { key: "presets", label: "Presets" },
+    { key: "eq", label: "Equalizer" },
+    { key: "source", label: "Source" },
+    { key: "output", label: "Output" },
+    { key: "sub", label: "Sub-out" },
+    { key: "temperature", label: "Temperature" },
+    { key: "device", label: "Device info" },
+  ];
+
+  async function toggle(key: keyof CardVisibility, value: boolean) {
+    setBusy(true);
+    try {
+      await apiSend("/api/settings", "PATCH", { cards: { [key]: value } });
+      await mutate();
+    } catch (e) {
+      toast((e as ApiError).message || "Could not save", "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Card className="p-5">
+      <CardHeader icon={<LayoutGrid className="size-4" />} title="Dashboard cards" className="px-0 pt-0" />
+      <p className="mt-2 text-sm text-muted-foreground">Choose which cards appear on the dashboard.</p>
+      <div className="mt-3 divide-y divide-border/60">
+        {items.map((it) => (
+          <div key={it.key} className="flex items-center justify-between py-2.5">
+            <span className="text-sm">{it.label}</span>
+            <Switch
+              checked={cards ? cards[it.key] : true}
+              onChange={(v) => void toggle(it.key, v)}
+              disabled={busy || !cards}
+              aria-label={it.label}
+            />
+          </div>
+        ))}
+      </div>
+    </Card>
   );
 }
 

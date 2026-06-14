@@ -24,9 +24,21 @@ export function useDevices(initial?: DeviceListItem[]) {
   return { devices: data?.devices ?? [], error, isLoading, mutate };
 }
 
+export type CardVisibility = {
+  nowPlaying: boolean;
+  presets: boolean;
+  eq: boolean;
+  source: boolean;
+  output: boolean;
+  sub: boolean;
+  temperature: boolean;
+  device: boolean;
+};
+
 type SettingsResponse = {
   turnstile: { enabled: boolean; siteKey: string; hasSecret: boolean };
   app: { pollIntervalMs: number };
+  cards: CardVisibility;
 };
 
 export function useSettings() {

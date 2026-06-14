@@ -39,10 +39,33 @@ export interface AppSettings {
   pollIntervalMs: number;
 }
 
+export interface CardVisibility {
+  nowPlaying: boolean;
+  presets: boolean;
+  eq: boolean;
+  source: boolean;
+  output: boolean;
+  sub: boolean;
+  temperature: boolean;
+  device: boolean;
+}
+
+export const DEFAULT_CARDS: CardVisibility = {
+  nowPlaying: true,
+  presets: true,
+  eq: true,
+  source: true,
+  output: true,
+  sub: true,
+  temperature: true,
+  device: true,
+};
+
 export const SettingKeys = {
   turnstile: "turnstile",
   app: "app",
   sourceLabels: "sourceLabels",
+  cards: "cards",
 } as const;
 
 /**

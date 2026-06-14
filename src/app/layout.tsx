@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { ToastProvider } from "@/components/toast";
+import { ModalProvider } from "@/components/modal";
 
 export const metadata: Metadata = {
   title: "Wiim Dashboard",
@@ -27,7 +28,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className="dark">
       <body className="min-h-screen antialiased">
-        <ToastProvider>{children}</ToastProvider>
+        <ToastProvider>
+          <ModalProvider>{children}</ModalProvider>
+        </ToastProvider>
       </body>
     </html>
   );

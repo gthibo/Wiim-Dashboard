@@ -10,6 +10,7 @@ import { Slider } from "@/components/ui/slider";
 import { VerticalSlider } from "@/components/ui/vertical-slider";
 import { Spinner } from "@/components/ui/spinner";
 import { useToast } from "@/components/toast";
+import { useConfirm, usePrompt } from "@/components/modal";
 import { apiGet, apiSend, ApiError } from "@/lib/client/api";
 import { cn } from "@/lib/utils";
 import { GRAPHIC_GAIN, PEQ_RANGE, PEQ_MODES } from "@/lib/wiim/eq-constants";
@@ -328,7 +329,45 @@ function PresetBar({
   onDelete: (name: string) => void;
   onRename: (name: string, newName: string) => void;
 }) {
+  const toast = useToast();
+  const confirm = useConfirm();
+  const prompt = usePrompt();
   const isCustom = presets.custom.includes(currentName);
+  const isFactory = (name: string) => presets.preset.includes(name);
+
+  async function doSave() {
+    const name = await prompt({
+      title: `Save ${type} EQ`,
+      message: "Save the current settings as a custom preset.",
+      placeholder: "Preset name",
+    });
+    if (!name) return;
+    if (isFactory(name)) {
+      toast("Can't overwrite a built-in preset — choose another name.", "error");
+      return;
+    }
+    onSave(name);
+  }
+
+  async function doRename() {
+    const newName = await prompt({ title: "Rename preset", defaultValue: currentName });
+    if (!newName || newName === currentName) return;
+    if (isFactory(newName)) {
+      toast("That name belongs to a built-in preset.", "error");
+      return;
+    }
+    onRename(currentName, newName);
+  }
+
+  async function doDelete() {
+    const ok = await confirm({
+      title: "Delete preset",
+      message: `Delete the custom preset “${currentName}”?`,
+      confirmText: "Delete",
+      danger: true,
+    });
+    if (ok) onDelete(currentName);
+  }
 
   return (
     <div className="mt-4 flex items-center gap-2 px-5">
@@ -380,10 +419,7 @@ function PresetBar({
       </DropdownMenu.Root>
 
       <button
-        onClick={() => {
-          const name = window.prompt(`Save current ${type} EQ as a new preset:`)?.trim();
-          if (name) onSave(name);
-        }}
+        onClick={() => void doSave()}
         className="focus-ring grid size-9 shrink-0 place-items-center rounded-xl bg-white/8 text-foreground hover:bg-white/14"
         title="Save as preset"
       >
@@ -392,19 +428,14 @@ function PresetBar({
       {isCustom && (
         <>
           <button
-            onClick={() => {
-              const nn = window.prompt("Rename preset:", currentName)?.trim();
-              if (nn && nn !== currentName) onRename(currentName, nn);
-            }}
+            onClick={() => void doRename()}
             className="focus-ring grid size-9 shrink-0 place-items-center rounded-xl bg-white/8 text-foreground hover:bg-white/14"
             title="Rename preset"
           >
             <Pencil className="size-4" />
           </button>
           <button
-            onClick={() => {
-              if (window.confirm(`Delete custom preset "${currentName}"?`)) onDelete(currentName);
-            }}
+            onClick={() => void doDelete()}
             className="focus-ring grid size-9 shrink-0 place-items-center rounded-xl bg-white/8 text-muted-foreground hover:bg-white/14 hover:text-destructive"
             title="Delete preset"
           >

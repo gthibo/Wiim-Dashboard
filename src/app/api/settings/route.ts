@@ -6,8 +6,10 @@ import {
   getSetting,
   setSetting,
   SettingKeys,
+  DEFAULT_CARDS,
   type TurnstileSettings,
   type AppSettings,
+  type CardVisibility,
 } from "@/lib/db/settings";
 
 export const dynamic = "force-dynamic";
@@ -28,6 +30,19 @@ const PatchSchema = z.object({
       pollIntervalMs: z.number().int().min(1000).max(60000),
     })
     .optional(),
+  cards: z
+    .object({
+      nowPlaying: z.boolean(),
+      presets: z.boolean(),
+      eq: z.boolean(),
+      source: z.boolean(),
+      output: z.boolean(),
+      sub: z.boolean(),
+      temperature: z.boolean(),
+      device: z.boolean(),
+    })
+    .partial()
+    .optional(),
 });
 
 /** Return settings with the Turnstile secret redacted. */
@@ -37,6 +52,7 @@ export async function GET(req: Request) {
 
   const turnstile = getSetting<TurnstileSettings | null>(SettingKeys.turnstile, null);
   const app = getSetting<AppSettings>(SettingKeys.app, DEFAULT_APP);
+  const cards = { ...DEFAULT_CARDS, ...getSetting<Partial<CardVisibility>>(SettingKeys.cards, {}) };
   return json({
     turnstile: {
       enabled: turnstile?.enabled ?? false,
@@ -44,6 +60,7 @@ export async function GET(req: Request) {
       hasSecret: !!turnstile?.secretKey,
     },
     app,
+    cards,
   });
 }
 
@@ -68,6 +85,11 @@ export async function PATCH(req: Request) {
 
   if (parsed.data.app) {
     setSetting(SettingKeys.app, parsed.data.app);
+  }
+
+  if (parsed.data.cards) {
+    const current = { ...DEFAULT_CARDS, ...getSetting<Partial<CardVisibility>>(SettingKeys.cards, {}) };
+    setSetting(SettingKeys.cards, { ...current, ...parsed.data.cards });
   }
 
   return json({ ok: true });

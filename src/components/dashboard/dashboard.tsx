@@ -2,7 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { WifiOff } from "lucide-react";
-import { useDevices, useSettings, useSnapshot, type DeviceListItem } from "@/lib/client/hooks";
+import {
+  useDevices,
+  useSettings,
+  useSnapshot,
+  type DeviceListItem,
+  type CardVisibility,
+} from "@/lib/client/hooks";
 import { AppHeader } from "./app-header";
 import { EmptyState } from "./empty-state";
 import { NowPlayingCard } from "./now-playing-card";
@@ -76,6 +82,8 @@ export function Dashboard({ initialDevices }: { initialDevices: DeviceListItem[]
       : player?.sourceKey
         ? SOURCES.find((s) => s.key === player.sourceKey)?.value ?? null
         : null;
+  // Card visibility (Settings). Defaults to visible while settings load.
+  const vis = (k: keyof CardVisibility) => settings?.cards?.[k] ?? true;
 
   return (
     <>
@@ -101,7 +109,7 @@ export function Dashboard({ initialDevices }: { initialDevices: DeviceListItem[]
 
         {snap && online && (
           <div className="animate-fade-in space-y-4">
-            {player && (
+            {vis("nowPlaying") && player && (
               <NowPlayingCard
                 deviceId={did}
                 player={player}
@@ -110,15 +118,15 @@ export function Dashboard({ initialDevices }: { initialDevices: DeviceListItem[]
               />
             )}
 
-            {snap.presets && snap.presets.length > 0 && (
+            {vis("presets") && snap.presets && snap.presets.length > 0 && (
               <PresetCard deviceId={did} presets={snap.presets} onChanged={refresh} />
             )}
 
             {/* Full per-source Graphic + Parametric EQ (self-hides if unsupported) */}
-            <EqCard deviceId={did} initialSource={eqSource} />
+            {vis("eq") && <EqCard deviceId={did} initialSource={eqSource} />}
 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              {player && caps?.sources && caps.sources.length > 0 && (
+              {vis("source") && player && caps?.sources && caps.sources.length > 0 && (
                 <SourceCard
                   deviceId={did}
                   sourceKeys={caps.sources}
@@ -127,7 +135,7 @@ export function Dashboard({ initialDevices }: { initialDevices: DeviceListItem[]
                   onChanged={refresh}
                 />
               )}
-              {caps?.outputSwitch && snap.output && (
+              {vis("output") && caps?.outputSwitch && snap.output && (
                 <OutputCard
                   deviceId={did}
                   outputIds={caps.outputs}
@@ -135,13 +143,13 @@ export function Dashboard({ initialDevices }: { initialDevices: DeviceListItem[]
                   onChanged={refresh}
                 />
               )}
-              {caps?.subwoofer && snap.sub && (
+              {vis("sub") && caps?.subwoofer && snap.sub && (
                 <SubCard deviceId={did} sub={snap.sub} onChanged={refresh} />
               )}
-              {caps?.temperature && snap.info && (
+              {vis("temperature") && caps?.temperature && snap.info && (
                 <TempCard cpu={snap.info.temperatureCpu} board={snap.info.temperatureBoard} />
               )}
-              {snap.info && <DeviceInfoCard info={snap.info} />}
+              {vis("device") && snap.info && <DeviceInfoCard info={snap.info} />}
             </div>
           </div>
         )}

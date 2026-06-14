@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Input, Field } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { useToast } from "@/components/toast";
+import { useConfirm } from "@/components/modal";
 import { apiSend, ApiError } from "@/lib/client/api";
 import { useDevices, type DeviceListItem } from "@/lib/client/hooks";
 import type { DeviceCapabilities } from "@/lib/wiim/types";
@@ -62,6 +63,7 @@ function CapChips({ caps }: { caps: DeviceCapabilities | null }) {
 
 export function DeviceManager({ initialDevices }: { initialDevices: DeviceListItem[] }) {
   const toast = useToast();
+  const confirm = useConfirm();
   const { devices, mutate } = useDevices(initialDevices);
 
   const [host, setHost] = useState("");
@@ -146,7 +148,13 @@ export function DeviceManager({ initialDevices }: { initialDevices: DeviceListIt
   }
 
   async function remove(id: string, label: string) {
-    if (!window.confirm(`Remove ${label}? This only removes it from the dashboard.`)) return;
+    const ok = await confirm({
+      title: "Remove device",
+      message: `Remove “${label}”? This only removes it from the dashboard.`,
+      confirmText: "Remove",
+      danger: true,
+    });
+    if (!ok) return;
     setBusyId(id);
     try {
       await apiSend(`/api/devices/${id}`, "DELETE");
