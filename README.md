@@ -1,0 +1,233 @@
+<div align="center">
+
+# 🎵 Wiim Dashboard
+
+**A self-hosted, dark-themed web dashboard to monitor and control your [WiiM](https://www.wiimhome.com/) (LinkPlay) audio devices.**
+
+Now-playing & transport · EQ · sub-out · source/output switching · presets with artwork · amp temperature — built for phone, tablet and desktop, packaged as a single Docker container, and hardened to sit safely behind your own reverse proxy.
+
+![License: MIT](https://img.shields.io/badge/License-MIT-7c5cff.svg)
+![Next.js](https://img.shields.io/badge/Next.js-15-black.svg)
+![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6.svg)
+![Docker](https://img.shields.io/badge/Docker-ready-2496ed.svg)
+
+<br/>
+
+<img src="docs/screenshot.png" alt="Wiim Dashboard — now playing, presets with artwork, source/output, sub-out and device info" width="480" />
+
+</div>
+
+---
+
+> [!IMPORTANT]
+> The WiiM device HTTP API has **no authentication** and uses a self-signed certificate. This app **never exposes the device** — a server-side proxy is the only thing that talks to it, behind login + CSRF + optional Cloudflare Turnstile, and SSRF-guarded so it can only reach LAN hosts.
+
+## Table of contents
+
+- [Features](#features)
+- [Supported devices](#supported-devices)
+- [How it works](#how-it-works)
+- [Tech stack](#tech-stack)
+- [Quick start (Docker)](#quick-start-docker)
+- [First run](#first-run)
+- [Adding devices](#adding-devices)
+- [Configuration](#configuration)
+- [Public access / reverse proxy](#public-access--reverse-proxy)
+- [Cloudflare Turnstile](#cloudflare-turnstile)
+- [Security model](#security-model)
+- [Development](#development)
+- [Project structure](#project-structure)
+- [Troubleshooting](#troubleshooting)
+- [Contributing](#contributing)
+- [License & credits](#license--credits)
+
+## Features
+
+| Area | What you get |
+|---|---|
+| **Now playing** | Title / artist / album (hex-decoded), album art (proxied), live progress, seek, play/pause, prev/next, shuffle & repeat |
+| **Source-aware art** | Physical inputs (Optical, Line-in, …) show the source icon instead of stale cover art |
+| **Quality readout** | Bit rate · sample rate · bit depth, e.g. `1411 kbps · 44.1 kHz · 16-bit` |
+| **Volume** | Slider **plus −/+ buttons** (touch-friendly on iPad) |
+| **Presets** | Square artwork tiles in a 2×6 grid (count auto-detected per model), tap to play; names + art from `getPresetInfo`; horizontal-scroll on phones |
+| **EQ** | Enable/disable + load named presets (`EQGetList` / `EQLoad`) |
+| **Sub-out** | Level (−15…+15 dB), crossover (30–250 Hz), phase, enable — with −/+ buttons |
+| **Temperature** | CPU + board °C gauge — **amp models only** |
+| **Source switching** | Auto-detected from the device's `plm_support` bitmask; rename inputs per device |
+| **Output switching** | Optical / line-out / coax (+ headphones on Ultra) |
+| **Multiple devices** | Add by IP or LAN scan; per-device **capability detection** shows only what each model supports |
+| **Auth & security** | Single-admin login (Argon2id), server sessions, optional TOTP 2FA, Cloudflare Turnstile, rate-limiting, CSRF, strict nonce-based CSP |
+| **Deploy** | One Docker image, `docker compose up -d`, data in a named volume |
+
+Every card is **capability-aware** — the Temperature card only appears on amp models, the Sub-out card only when the device answers `getSubLPF`, the Presets card only when the model exposes preset slots, and so on.
+
+## Supported devices
+
+Any WiiM / LinkPlay device that exposes the `httpapi.asp` HTTP API, including:
+
+- **WiiM Mini, Pro, Pro Plus** — playback, EQ, source/output
+- **WiiM Ultra** — + sub-out, output routing, presets, headphones out
+- **WiiM Amp / Amp Pro / Amp Ultra, Vibelink Amp** — + device temperature
+- Other LinkPlay OEM streamers may work to varying degrees
+
+Feature availability is detected per device at add time (and refreshable), so unsupported cards are simply hidden.
+
+## How it works
+
+```
+ Browser ──https──> Your reverse proxy (Zoraxy/Caddy/Cloudflare) ──http──> Wiim Dashboard (Docker)
+                                                                                   │ server-side only
+                                                                                   ▼
+                                                                       WiiM device(s) on the LAN
+                                                                       https://<ip>/httpapi.asp
+```
+
+The Next.js server is the **only** component that talks to the device. The browser only ever calls the app's own authenticated API routes; the app proxies each command to the device over HTTPS (self-signed cert + the shared LinkPlay mTLS client cert), normalises the response, and returns clean JSON. See [ARCHITECTURE.md](ARCHITECTURE.md) for the full design and [docs/WIIM-API.md](docs/WIIM-API.md) for the device API mapping.
+
+## Tech stack
+
+- **[Next.js 15](https://nextjs.org/)** (App Router, TypeScript) — UI + server-side device proxy in one image (standalone output)
+- **Tailwind CSS** + Radix UI primitives + Framer Motion + lucide icons
+- **better-sqlite3** for users / sessions / devices / settings
+- **@node-rs/argon2** password hashing · **otplib** TOTP
+- Single multi-stage **Docker** image, ~250 MB runtime
+
+## Quick start (Docker)
+
+**Prerequisites:** Docker + Docker Compose, and your WiiM device(s) reachable on the LAN.
+
+```bash
+git clone https://github.com/illianoaoi/Wiim-Dashboard.git
+cd Wiim-Dashboard
+
+cp .env.example .env
+# Edit .env — at minimum set AUTH_SECRET:
+#   openssl rand -base64 48
+
+docker compose up -d --build
+```
+
+Open `http://<host>:39446` and you'll be taken to a first-run setup page.
+
+> **Testing over plain http (LAN IP)?** Set `COOKIE_SECURE=false` in `.env` so login cookies work without https. Behind https (recommended), leave it unset.
+
+## First run
+
+1. Open the app → **Setup** page → create your single admin account (Argon2id-hashed).
+2. You're logged in and redirected to the dashboard.
+3. Go to **Add device** to connect your first WiiM.
+
+## Adding devices
+
+- **By IP (recommended):** enter the device's LAN IP (e.g. `192.168.1.50`). The app probes it and saves its capabilities.
+- **LAN scan:** on the Add-device page enter your network range (e.g. `192.168.1.0/24`) and **Scan** — the app probes every host in that /24 in parallel. This works inside Docker bridge networking (unlike SSDP multicast).
+- **SSDP discovery** is also attempted, but only works when the container uses host networking (`network_mode: host` — see comments in `docker-compose.yml`).
+- **Rename sources** per device on the Devices page (the WiiM API doesn't expose the input names you set in the WiiM app, so the dashboard stores its own).
+
+## Configuration
+
+All configuration is environment variables (see `.env.example`):
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `AUTH_SECRET` | — (required) | Server secret (≥16 chars). HMAC pepper for session tokens. `openssl rand -base64 48` |
+| `APP_ORIGIN` | — | Public origin (`https://…`) for strict CSRF origin checks |
+| `TRUST_PROXY` | `true` | Honour `X-Forwarded-For` / `-Proto` from your reverse proxy |
+| `COOKIE_SECURE` | `true` in prod | Set `false` only for plain-http LAN testing |
+| `DATA_DIR` | `/data` | SQLite + runtime data (mounted volume) |
+| `PORT` | `3000` | Internal listen port (compose maps host `39446` → `3000`) |
+| `TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET_KEY` | — | Optional; can also be set in **Settings** |
+| `WIIM_CLIENT_CERT_PATH` / `WIIM_CLIENT_KEY_PATH` | — | Optional mTLS override (a working LinkPlay cert is embedded) |
+
+The dashboard's polling interval, Turnstile keys and per-device source names are managed in the **Settings** and **Devices** pages and stored in SQLite.
+
+## Public access / reverse proxy
+
+The app serves plain HTTP on its port; **terminate TLS at a reverse proxy**. It ships behind host port `39446` by default.
+
+**Zoraxy / Caddy / Traefik / Nginx:**
+1. Point a virtual host (your domain) → `http://<docker-host>:39446`.
+2. Enable HTTPS on that host (Let's Encrypt).
+3. Keep `TRUST_PROXY=true`, set `APP_ORIGIN=https://your-domain`, and **remove `COOKIE_SECURE=false`** so cookies are marked `Secure`.
+4. Forward `Host`, `X-Forwarded-For`, `X-Forwarded-Proto`.
+
+> Since `TRUST_PROXY=true` makes the app trust `X-Forwarded-For`, only your proxy should be able to reach the app's port. If the proxy is on the same host, bind the port to loopback (`127.0.0.1:39446:3000` in compose). A global login rate-limit also caps brute-force even if the header is spoofed.
+
+## Cloudflare Turnstile
+
+1. Cloudflare dashboard → **Turnstile** → create a widget for your domain.
+2. Paste the **Site key** + **Secret key** in **Settings → Cloudflare Turnstile** (or via env), toggle it on.
+3. The login form then requires a Turnstile challenge before credentials are checked.
+
+## Security model
+
+- **Device isolation** — only the server reaches the device; requests are SSRF-guarded (DNS-resolved + IP-checked + connection-pinned to LAN ranges); destructive WiiM commands are never proxied.
+- **Auth** — Argon2id passwords; opaque random session tokens stored as an HMAC (peppered by `AUTH_SECRET`) in SQLite; `HttpOnly`/`Secure`/`SameSite=Lax` cookies; sliding expiry; optional TOTP 2FA; per-IP **and** global login rate-limiting.
+- **CSRF** — double-submit token + Origin/Referer checks on every mutation.
+- **Headers** — nonce-based strict CSP, `X-Frame-Options: DENY`, HSTS (https mode), `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`.
+
+Full details and the threat model are in [SECURITY.md](SECURITY.md).
+
+## Development
+
+```bash
+npm install
+npm run dev        # http://localhost:3000
+npm run typecheck
+npm run build
+npm run lint
+```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for conventions and step-by-step guides (adding a card, a device command, an API route).
+
+## Project structure
+
+```
+src/
+├── app/                      # Next.js App Router
+│   ├── (pages)               # /, /login, /setup, /settings, /devices
+│   └── api/                  # auth, settings, discover, devices/[id]/{control,eq,sub,output,source,preset,art,…}
+├── components/
+│   ├── ui/                   # button, card, slider, stepper-slider, switch, input, icon…
+│   ├── auth/                 # login/setup forms, Turnstile widget
+│   ├── dashboard/            # now-playing, source, output, eq, sub, temp, preset cards…
+│   ├── devices/              # device manager (add / scan / rename / capabilities)
+│   └── settings/             # account, 2FA, Turnstile, polling
+├── lib/
+│   ├── wiim/                 # device client (TLS/mTLS/SSRF), commands, parsing, capabilities, discovery
+│   ├── auth/                 # password, session, csrf, turnstile, totp, rate-limit
+│   ├── db/                   # better-sqlite3 store (users, sessions, devices, settings)
+│   └── client/               # browser fetch helpers + SWR hooks
+└── middleware.ts             # CSP nonce, security headers, page auth gate
+```
+
+## Troubleshooting
+
+| Symptom | Fix |
+|---|---|
+| **Blank/white page over http** | Set `COOKIE_SECURE=false` (CSP `upgrade-insecure-requests`/HSTS are disabled in this mode). Behind https, leave it unset. |
+| **Login doesn't persist over LAN IP** | Cookies are `Secure` by default — use `https` (proxy) or `COOKIE_SECURE=false` for testing. |
+| **`/api/auth/session` 500 on first run** | A host bind-mount for `/data` is root-owned on Linux; this project uses a **named volume** to avoid it. Don't switch `/data` back to a bind-mount. |
+| **LAN scan finds nothing** | Set the range to match your subnet (e.g. `192.168.0.0/24`); or add by IP. SSDP needs host networking. |
+| **A card is missing** | That model doesn't expose the feature, or capabilities are stale — hit **Refresh** on the device (Devices page). |
+| **Device shows offline** | Check the IP, that the device is on, and that the container can reach the LAN. |
+
+## Contributing
+
+PRs welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) first. Run `npm run typecheck && npm run build` before opening a PR.
+
+## License & credits
+
+MIT — see [LICENSE](LICENSE). You're free to use, modify and redistribute.
+
+WiiM/LinkPlay HTTP API behaviour and the shared client certificate are derived from the official *HTTP API for WiiM Products v1.2* and the open-source [`python-linkplay`](https://github.com/Velleman/python-linkplay) / [`pywiim`](https://github.com/mjcumming/pywiim) projects. Sub-out (`getSubLPF`/`setSubLPF`), extended output/source modes and presets are community-verified and not all in the official PDF.
+
+> **Disclaimer:** This is an unofficial, community project and is not affiliated with or endorsed by WiiM / LinkPlay. Use at your own risk.
+
+---
+
+<div align="center">
+
+✨ <strong>Vibe coding by illiano</strong>
+
+</div>

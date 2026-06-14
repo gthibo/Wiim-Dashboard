@@ -1,0 +1,94 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Dark-only, modern palette. Deep slate base + violet accent. */
+  --background: 224 32% 4%;
+  --foreground: 210 22% 96%;
+  --surface: 225 26% 7%;
+  --card: 225 24% 9%;
+  --card-foreground: 210 22% 96%;
+  --muted: 223 18% 15%;
+  --muted-foreground: 218 13% 63%;
+  --primary: 258 90% 66%;
+  --primary-foreground: 0 0% 100%;
+  --accent: 199 92% 56%;
+  --accent-foreground: 0 0% 100%;
+  --border: 222 22% 15%;
+  --input: 222 22% 13%;
+  --ring: 258 90% 66%;
+  --destructive: 0 72% 56%;
+  --destructive-foreground: 0 0% 100%;
+  --success: 152 58% 48%;
+  --warning: 38 92% 58%;
+  --radius: 1rem;
+  --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+* {
+  border-color: hsl(var(--border));
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  /* Ambient gradient glow behind the dashboard. */
+  background-image:
+    radial-gradient(120% 80% at 12% -10%, hsl(258 90% 66% / 0.16), transparent 55%),
+    radial-gradient(100% 70% at 100% 0%, hsl(199 92% 56% / 0.1), transparent 50%);
+  background-attachment: fixed;
+  /* iOS safe-area + no overscroll glow */
+  padding-top: env(safe-area-inset-top);
+  overscroll-behavior-y: none;
+}
+
+@layer components {
+  .glass {
+    background:
+      linear-gradient(
+        180deg,
+        hsl(var(--card) / 0.9),
+        hsl(var(--card) / 0.7)
+      );
+    backdrop-filter: blur(16px) saturate(140%);
+    -webkit-backdrop-filter: blur(16px) saturate(140%);
+    border: 1px solid hsl(var(--border) / 0.8);
+    box-shadow:
+      0 1px 0 0 hsl(0 0% 100% / 0.04) inset,
+      0 24px 60px -28px hsl(224 60% 2% / 0.9);
+  }
+
+  .focus-ring {
+    @apply outline-none ring-offset-2 ring-offset-background focus-visible:ring-2 focus-visible:ring-ring;
+  }
+}
+
+/* Subtle, theme-aware scrollbars */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted));
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.5);
+  background-clip: padding-box;
+}
+
+/* Range/slider thumbs inherit accent on iOS Safari */
+input[type="range"] {
+  accent-color: hsl(var(--primary));
+}
