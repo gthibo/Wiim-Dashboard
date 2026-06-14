@@ -85,7 +85,7 @@ function inferCodec(service: string | null, lossless: boolean): string | null {
     case "deezer":
       return lossless ? "FLAC" : "MP3";
     case "spotify":
-      return "OGG";
+      return lossless ? "FLAC" : "OGG"; // Spotify Lossless is FLAC; standard is OGG
     case "youtubemusic":
       return "AAC";
     case "soundcloud":
@@ -112,18 +112,29 @@ export function inferAudioFormat(
   bitDepth: number | null,
   bitRate: number | null,
 ): AudioFormat | null {
+  // bitRate is the reliable lossy/lossless discriminator: compressed codecs
+  // (OGG/MP3/AAC) cap around 320–400 kbps, whereas lossless FLAC is ~700 kbps+.
+  // The device reports a *decoded PCM* bitDepth (e.g. 16) even for lossy streams,
+  // so bitDepth alone wrongly flags Spotify's 320 kbps OGG as "lossless".
+  const hiRes = (bitDepth != null && bitDepth >= 24) || (sampleRate != null && sampleRate > 48000);
+
   let tier: AudioFormat["tier"] = null;
-  const lossless = bitDepth != null && bitDepth >= 16;
-  if (lossless) {
-    tier = bitDepth! >= 24 || (sampleRate != null && sampleRate > 48000) ? "hires" : "lossless";
+  if (bitRate != null && bitRate > 0 && bitRate <= 400) {
+    tier = "lossy"; // 320 kbps OGG/AAC/MP3 — lossy regardless of reported depth
+  } else if (hiRes) {
+    tier = "hires";
+  } else if (bitDepth != null && bitDepth >= 16) {
+    tier = "lossless"; // 16-bit with a high/absent bitrate ⇒ CD-quality FLAC
+  } else if (bitRate != null && bitRate > 400) {
+    tier = "lossless"; // high bitrate but no depth reported ⇒ treat as lossless
   } else if ((bitRate != null && bitRate > 0) || (sampleRate != null && sampleRate > 0)) {
-    // A sample-rate/bitrate but no bit-depth ⇒ a lossy codec (MP3/AAC/OGG).
     tier = "lossy";
   }
 
+  const lossless = tier === "hires" || tier === "lossless";
   const codec = tier == null ? null : inferCodec(serviceKey, lossless);
 
-  if (tier == null && codec == null && sampleRate == null && bitDepth == null && bitRate == null) {
+  if (tier == null && sampleRate == null && bitDepth == null && bitRate == null) {
     return null;
   }
   return { codec, tier, sampleRate, bitDepth, bitRate };

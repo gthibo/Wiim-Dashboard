@@ -70,9 +70,6 @@ async function tick(): Promise<void> {
 
 async function processDevice(id: string, host: string, creds: lastfm.LastfmCreds): Promise<void> {
   const p = await fetchPlayerStatus(host);
-  log(
-    `${id.slice(0, 8)} state=${p.state} title=${p.title ?? "-"} pos=${p.position}/${p.duration}s`,
-  );
   if (p.state !== "playing" || !p.title || !p.artist) return;
 
   const key = `${p.artist} ${p.title} ${p.album ?? ""}`;
