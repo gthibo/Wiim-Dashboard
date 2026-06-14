@@ -66,7 +66,42 @@ export const SettingKeys = {
   app: "app",
   sourceLabels: "sourceLabels",
   cards: "cards",
+  lastfm: "lastfm",
 } as const;
+
+/**
+ * Last.fm integration. `apiKey`/`apiSecret` are the registered app credentials;
+ * `sessionKey` is the per-user scrobbling session (never expires) from the auth
+ * flow; `scrobbleDevices` maps deviceId → enabled. Secrets (apiSecret,
+ * sessionKey, pendingToken) are server-only — never sent to the client.
+ */
+export interface LastfmSettings {
+  apiKey: string;
+  apiSecret: string;
+  sessionKey: string;
+  username: string;
+  pendingToken: string; // transient token during the connect flow
+  scrobbleDevices: Record<string, boolean>;
+}
+
+export const DEFAULT_LASTFM: LastfmSettings = {
+  apiKey: "",
+  apiSecret: "",
+  sessionKey: "",
+  username: "",
+  pendingToken: "",
+  scrobbleDevices: {},
+};
+
+export function getLastfm(): LastfmSettings {
+  return { ...DEFAULT_LASTFM, ...getSetting<Partial<LastfmSettings>>(SettingKeys.lastfm, {}) };
+}
+
+export function setLastfm(patch: Partial<LastfmSettings>): LastfmSettings {
+  const next = { ...getLastfm(), ...patch };
+  setSetting(SettingKeys.lastfm, next);
+  return next;
+}
 
 /**
  * Per-device custom source names. The WiiM API doesn't expose the input

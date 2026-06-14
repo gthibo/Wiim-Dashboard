@@ -114,6 +114,7 @@ export function Dashboard({ initialDevices }: { initialDevices: DeviceListItem[]
                 deviceId={did}
                 player={player}
                 sourceLabels={selectedDevice?.sourceLabels}
+                canLove={!!settings?.lastfm?.connected}
                 onChanged={refresh}
               />
             )}

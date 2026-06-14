@@ -5,6 +5,7 @@ import { parseBody } from "@/lib/validate";
 import {
   getSetting,
   setSetting,
+  getLastfm,
   SettingKeys,
   DEFAULT_CARDS,
   type TurnstileSettings,
@@ -53,6 +54,7 @@ export async function GET(req: Request) {
   const turnstile = getSetting<TurnstileSettings | null>(SettingKeys.turnstile, null);
   const app = getSetting<AppSettings>(SettingKeys.app, DEFAULT_APP);
   const cards = { ...DEFAULT_CARDS, ...getSetting<Partial<CardVisibility>>(SettingKeys.cards, {}) };
+  const lf = getLastfm();
   return json({
     turnstile: {
       enabled: turnstile?.enabled ?? false,
@@ -61,6 +63,13 @@ export async function GET(req: Request) {
     },
     app,
     cards,
+    lastfm: {
+      apiKey: lf.apiKey, // not secret — appears in the authorize URL anyway
+      hasSecret: !!lf.apiSecret,
+      connected: !!lf.sessionKey,
+      username: lf.username,
+      scrobbleDevices: lf.scrobbleDevices,
+    },
   });
 }
 

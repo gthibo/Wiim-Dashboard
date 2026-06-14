@@ -14,6 +14,7 @@ import {
   Repeat1,
   Shuffle,
   Music4,
+  Heart,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
@@ -30,11 +31,13 @@ export function NowPlayingCard({
   deviceId,
   player,
   sourceLabels,
+  canLove,
   onChanged,
 }: {
   deviceId: string;
   player: PlayerStatus;
   sourceLabels?: Record<string, string>;
+  canLove?: boolean;
   onChanged: () => void;
 }) {
   const toast = useToast();
@@ -48,6 +51,7 @@ export function NowPlayingCard({
   const [repeat, setRepeat] = useState(player.repeat);
   const [shuffle, setShuffle] = useState(player.shuffle);
   const loopFreezeUntil = useRef(0);
+  const [loved, setLoved] = useState(false);
 
   const isPlaying = player.state === "playing";
   const srcDef = player.sourceKey ? SOURCES.find((s) => s.key === player.sourceKey) : undefined;
@@ -82,6 +86,11 @@ export function NowPlayingCard({
       setShuffle(player.shuffle);
     }
   }, [player.repeat, player.shuffle]);
+
+  // Reset the Last.fm "loved" indicator when the track changes.
+  useEffect(() => {
+    setLoved(false);
+  }, [player.title, player.artist]);
 
   // Tick position forward while playing.
   useEffect(() => {
@@ -122,6 +131,22 @@ export function NowPlayingCard({
     setShuffle(next);
     loopFreezeUntil.current = Date.now() + 2500;
     void send({ action: "shuffle", repeat, shuffle: next });
+  }
+
+  async function toggleLove() {
+    if (!player.title || !player.artist) return;
+    const next = !loved;
+    setLoved(next); // optimistic
+    try {
+      await apiSend("/api/lastfm/love", "POST", {
+        artist: player.artist,
+        track: player.title,
+        love: next,
+      });
+    } catch (e) {
+      setLoved(!next);
+      toast((e as ApiError).message || "Last.fm action failed", "error");
+    }
   }
 
   return (
@@ -184,9 +209,24 @@ export function NowPlayingCard({
               </span>
             )}
           </div>
-          <h2 className="truncate text-xl font-semibold text-foreground">
-            {player.title ?? (player.state === "stopped" ? "Nothing playing" : "—")}
-          </h2>
+          <div className="flex items-center gap-2">
+            <h2 className="truncate text-xl font-semibold text-foreground">
+              {player.title ?? (player.state === "stopped" ? "Nothing playing" : "—")}
+            </h2>
+            {canLove && player.title && player.artist && (
+              <button
+                onClick={() => void toggleLove()}
+                className={cn(
+                  "focus-ring ml-auto grid size-9 shrink-0 place-items-center rounded-full transition",
+                  loved ? "text-rose-400" : "text-muted-foreground hover:text-foreground",
+                )}
+                aria-label={loved ? "Unlove on Last.fm" : "Love on Last.fm"}
+                title="Last.fm Love"
+              >
+                <Heart className={cn("size-5", loved && "fill-current")} />
+              </button>
+            )}
+          </div>
           <p className="truncate text-sm text-muted-foreground">{player.artist ?? ""}</p>
           {player.album && (
             <p className="truncate text-xs text-muted-foreground/70">{player.album}</p>
@@ -355,7 +395,7 @@ function StreamInfoLine({ service, audio }: { service: StreamService; audio: Aud
   });
 
   return (
-    <div className="mt-4 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+    <div className="mt-4 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center text-xs text-muted-foreground">
       <ServiceLogo
         logo={service.logo}
         serviceKey={service.key}

@@ -10,6 +10,9 @@ import {
   ShieldOff,
   QrCode,
   LayoutGrid,
+  Radio,
+  Heart,
+  Link as LinkIcon,
 } from "lucide-react";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -18,17 +21,195 @@ import { Switch } from "@/components/ui/switch";
 import { Spinner } from "@/components/ui/spinner";
 import { useToast } from "@/components/toast";
 import { apiSend, ApiError } from "@/lib/client/api";
-import { useSettings, type CardVisibility } from "@/lib/client/hooks";
+import { useSettings, useDevices, type CardVisibility } from "@/lib/client/hooks";
 
 export function SettingsView({ totpEnabled }: { totpEnabled: boolean }) {
   return (
     <div className="space-y-5">
       <DisplayCards />
+      <Scrobbling />
       <ChangePassword />
       <TwoFactor enabled={totpEnabled} />
       <TurnstileSettings />
       <GeneralSettings />
     </div>
+  );
+}
+
+function Scrobbling() {
+  const toast = useToast();
+  const { settings, mutate } = useSettings();
+  const { devices } = useDevices();
+  const lf = settings?.lastfm;
+  const [apiKey, setApiKey] = useState<string | null>(null);
+  const [apiSecret, setApiSecret] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [pendingAuth, setPendingAuth] = useState(false);
+
+  const keyVal = apiKey ?? lf?.apiKey ?? "";
+  const hasSecret = lf?.hasSecret ?? false;
+  const hasCreds = !!keyVal && hasSecret;
+  const connected = lf?.connected ?? false;
+
+  async function saveCreds() {
+    setBusy(true);
+    try {
+      await apiSend("/api/lastfm/credentials", "POST", {
+        apiKey: keyVal,
+        apiSecret: apiSecret.length > 0 ? apiSecret : undefined,
+      });
+      toast("Last.fm credentials saved", "success");
+      setApiSecret("");
+      setApiKey(null);
+      await mutate();
+    } catch (e) {
+      toast((e as ApiError).message || "Could not save", "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function connect() {
+    setBusy(true);
+    try {
+      const r = await apiSend<{ authUrl: string }>("/api/lastfm/connect", "POST");
+      window.open(r.authUrl, "_blank", "noopener,noreferrer");
+      setPendingAuth(true);
+      toast("Approve access on Last.fm, then click Complete", "info");
+    } catch (e) {
+      toast((e as ApiError).message || "Could not start connection", "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function complete() {
+    setBusy(true);
+    try {
+      const r = await apiSend<{ username: string }>("/api/lastfm/session", "POST");
+      toast(`Connected as ${r.username}`, "success");
+      setPendingAuth(false);
+      await mutate();
+    } catch (e) {
+      toast((e as ApiError).message || "Could not complete connection", "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function disconnect() {
+    setBusy(true);
+    try {
+      await apiSend("/api/lastfm/disconnect", "POST");
+      setPendingAuth(false);
+      await mutate();
+    } catch (e) {
+      toast((e as ApiError).message || "Could not disconnect", "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function toggleDevice(id: string, enabled: boolean) {
+    setBusy(true);
+    try {
+      await apiSend("/api/lastfm/devices", "PATCH", { deviceId: id, enabled });
+      await mutate();
+    } catch (e) {
+      toast((e as ApiError).message || "Could not save", "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Card className="p-5">
+      <CardHeader icon={<Radio className="size-4" />} title="Last.fm Scrobbling" className="px-0 pt-0" />
+      <div className="mt-4 space-y-4">
+        <p className="text-sm text-muted-foreground">
+          Scrobble what your devices play (server-side, even with this tab closed) and enable the{" "}
+          <Heart className="inline size-3.5 -translate-y-px text-rose-400" /> Love button. Create an
+          API account at{" "}
+          <a
+            className="text-primary underline"
+            href="https://www.last.fm/api/account/create"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            last.fm/api/account/create
+          </a>{" "}
+          and paste the key + shared secret.
+        </p>
+
+        <Field label="API key">
+          <Input
+            value={keyVal}
+            onChange={(e) => setApiKey(e.target.value)}
+            placeholder="Last.fm API key"
+          />
+        </Field>
+        <Field
+          label="Shared secret"
+          hint={hasSecret ? "A secret is saved — leave blank to keep it." : undefined}
+        >
+          <Input
+            type="password"
+            value={apiSecret}
+            onChange={(e) => setApiSecret(e.target.value)}
+            placeholder={hasSecret ? "•••••••• (unchanged)" : "Last.fm shared secret"}
+          />
+        </Field>
+        <Button variant="secondary" onClick={() => void saveCreds()} disabled={busy || !keyVal}>
+          {busy ? <Spinner /> : <Save className="size-5" />} Save credentials
+        </Button>
+
+        <div className="border-t border-border/60 pt-4">
+          {connected ? (
+            <div className="space-y-3">
+              <p className="flex items-center gap-2 text-sm text-success">
+                <ShieldCheck className="size-4" /> Connected as{" "}
+                <span className="font-medium">{lf?.username}</span>
+              </p>
+              <Button variant="destructive" onClick={() => void disconnect()} disabled={busy}>
+                Disconnect
+              </Button>
+            </div>
+          ) : pendingAuth ? (
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                A Last.fm tab opened — approve access there, then click Complete.
+              </p>
+              <Button onClick={() => void complete()} disabled={busy}>
+                {busy ? <Spinner /> : <ShieldCheck className="size-5" />} Complete connection
+              </Button>
+            </div>
+          ) : (
+            <Button onClick={() => void connect()} disabled={busy || !hasCreds}>
+              {busy ? <Spinner /> : <LinkIcon className="size-5" />} Connect Last.fm account
+            </Button>
+          )}
+        </div>
+
+        {connected && devices.length > 0 && (
+          <div className="border-t border-border/60 pt-4">
+            <p className="text-sm font-medium">Scrobble these devices</p>
+            <div className="mt-2 divide-y divide-border/60">
+              {devices.map((d) => (
+                <div key={d.id} className="flex items-center justify-between py-2.5">
+                  <span className="text-sm">{d.name}</span>
+                  <Switch
+                    checked={!!lf?.scrobbleDevices?.[d.id]}
+                    onChange={(v) => void toggleDevice(d.id, v)}
+                    disabled={busy}
+                    aria-label={`Scrobble ${d.name}`}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </Card>
   );
 }
 

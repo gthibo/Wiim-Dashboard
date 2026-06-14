@@ -35,10 +35,19 @@ export type CardVisibility = {
   device: boolean;
 };
 
+export type LastfmStatus = {
+  apiKey: string;
+  hasSecret: boolean;
+  connected: boolean;
+  username: string;
+  scrobbleDevices: Record<string, boolean>;
+};
+
 type SettingsResponse = {
   turnstile: { enabled: boolean; siteKey: string; hasSecret: boolean };
   app: { pollIntervalMs: number };
   cards: CardVisibility;
+  lastfm: LastfmStatus;
 };
 
 export function useSettings() {
