@@ -14,6 +14,7 @@ import {
   Repeat1,
   Shuffle,
   Music4,
+  FileAudio,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
@@ -23,7 +24,8 @@ import { apiSend, ApiError } from "@/lib/client/api";
 import { formatTime, cn } from "@/lib/utils";
 import { SOURCES } from "@/lib/wiim/constants";
 import { DynIcon } from "@/components/ui/icon";
-import type { PlayerStatus } from "@/lib/wiim/types";
+import { ServiceLogo } from "@/components/ui/service-logo";
+import type { PlayerStatus, StreamService, AudioFormat } from "@/lib/wiim/types";
 
 export function NowPlayingCard({
   deviceId,
@@ -57,6 +59,9 @@ export function NowPlayingCard({
   // network/streaming sources display album art.
   const isPhysicalInput = !!player.sourceKey && player.sourceKey !== "wifi";
   const showArt = !!player.albumArt && !isPhysicalInput;
+  // Stream-info block (service / format) — only network & Bluetooth have spare
+  // vertical space beneath the cover for it.
+  const showStreamInfo = player.sourceKey === "wifi" || player.sourceKey === "bluetooth";
 
   // Reset interpolated position on track / status change.
   useEffect(() => {
@@ -123,8 +128,10 @@ export function NowPlayingCard({
   return (
     <Card className="overflow-hidden p-5 sm:p-6">
       <div className="flex flex-col gap-5 sm:flex-row sm:gap-6">
-        {/* Artwork — fixed square; self-start stops the flex row stretching it */}
-        <div className="relative mx-auto size-44 shrink-0 self-center overflow-hidden rounded-2xl bg-white/5 shadow-xl sm:mx-0 sm:size-52 sm:self-start">
+        {/* Left column — artwork + (network/BT only) the stream-info block */}
+        <div className="flex shrink-0 flex-col items-center gap-4 sm:items-start">
+          {/* Artwork — fixed square */}
+          <div className="relative size-44 overflow-hidden rounded-2xl bg-white/5 shadow-xl sm:size-52">
           <AnimatePresence mode="wait">
             {showArt ? (
               <motion.div
@@ -158,6 +165,10 @@ export function NowPlayingCard({
               </div>
             )}
           </AnimatePresence>
+          </div>
+          {showStreamInfo && player.service && (
+            <StreamInfo service={player.service} audio={player.audio} />
+          )}
         </div>
 
         {/* Meta + transport */}
@@ -301,5 +312,56 @@ export function NowPlayingCard({
         </div>
       </div>
     </Card>
+  );
+}
+
+/**
+ * Stream metadata shown beneath the cover for network / Bluetooth sources:
+ * service (logo + name), inferred file format, and a quality-tier badge.
+ */
+function StreamInfo({ service, audio }: { service: StreamService; audio: AudioFormat | null }) {
+  const tierLabel =
+    audio?.tier === "hires"
+      ? "Hi-Res Lossless"
+      : audio?.tier === "lossless"
+        ? "Lossless"
+        : audio?.tier === "lossy"
+          ? "Lossy"
+          : null;
+
+  return (
+    <div className="w-44 space-y-2 text-left sm:w-52">
+      {/* Streaming service */}
+      <div className="flex items-center gap-2 text-sm font-medium text-foreground/90">
+        <ServiceLogo logo={service.logo} serviceKey={service.key} className="size-4 shrink-0" />
+        <span className="truncate">{service.name}</span>
+      </div>
+
+      {/* File format (inferred — WiiM's API doesn't expose the codec) */}
+      {audio?.codec && (
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <FileAudio className="size-3.5 shrink-0" />
+          <span>{audio.codec}</span>
+        </div>
+      )}
+
+      {/* Quality tier */}
+      {tierLabel && (
+        <div>
+          <span
+            className={cn(
+              "inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+              audio?.tier === "hires"
+                ? "bg-amber-400/15 text-amber-300"
+                : audio?.tier === "lossless"
+                  ? "bg-primary/15 text-primary"
+                  : "bg-white/8 text-muted-foreground",
+            )}
+          >
+            {tierLabel}
+          </span>
+        </div>
+      )}
+    </div>
   );
 }

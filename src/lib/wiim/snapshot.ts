@@ -8,6 +8,7 @@ import {
   fetchOutput,
   fetchPresets,
 } from "./commands";
+import { detectService, inferAudioFormat } from "./now-playing-info";
 import type { DeviceSnapshot, DeviceCapabilities } from "./types";
 
 export interface PollableDevice {
@@ -48,8 +49,19 @@ export async function getDeviceSnapshot(device: PollableDevice): Promise<DeviceS
   const player = playerR.status === "fulfilled" ? playerR.value : null;
 
   if (player) {
-    const meta = metaR.status === "fulfilled" ? metaR.value : { albumArt: null, quality: null };
+    const meta =
+      metaR.status === "fulfilled"
+        ? metaR.value
+        : { albumArt: null, quality: null, sampleRate: null, bitDepth: null, bitRate: null };
     player.quality = meta.quality;
+    // Detect the streaming service (mode + raw art host) and infer the format.
+    player.service = detectService(player.sourceMode, meta.albumArt);
+    player.audio = inferAudioFormat(
+      player.service?.key ?? null,
+      meta.sampleRate,
+      meta.bitDepth,
+      meta.bitRate,
+    );
     if (meta.albumArt) {
       const sig = createHash("sha1")
         .update(`${player.title ?? ""}|${player.artist ?? ""}|${meta.albumArt}`)

@@ -151,7 +151,9 @@ export function parsePlayerStatus(raw: Record<string, unknown>): PlayerStatus {
     repeat,
     shuffle,
     eqIndex: num(raw.eq, 0),
-    quality: null,
+    quality: null, // filled from getMetaInfo
+    service: null, // filled in snapshot (needs mode + art URL)
+    audio: null, // filled in snapshot (needs getMetaInfo)
   };
 }
 

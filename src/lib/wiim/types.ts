@@ -2,6 +2,26 @@
 
 export type PlaybackState = "playing" | "paused" | "stopped" | "loading";
 
+/** The streaming service / protocol behind the current track (network & BT). */
+export interface StreamService {
+  key: string; // "tidal" | "spotify" | "qobuz" | "airplay" | "bluetooth" | ...
+  name: string; // display label, e.g. "TIDAL Connect"
+  logo: string | null; // brand-logo key for <ServiceLogo>; null → lucide fallback
+}
+
+/**
+ * Audio format for the current track. WiiM's HTTP API does NOT expose the
+ * codec, so `codec`/`tier` are inferred from sampleRate/bitDepth + the known
+ * service (see now-playing-info.ts). Numbers are the raw getMetaInfo values.
+ */
+export interface AudioFormat {
+  codec: string | null; // inferred, e.g. "FLAC" | "ALAC" | "MP3" | "AAC" | "OGG"
+  tier: "hires" | "lossless" | "lossy" | null;
+  sampleRate: number | null; // Hz
+  bitDepth: number | null; // bits
+  bitRate: number | null; // kbps
+}
+
 export interface PlayerStatus {
   state: PlaybackState;
   title: string | null;
@@ -23,6 +43,10 @@ export interface PlayerStatus {
   /** numeric EQ preset index from player status (presentational only). */
   eqIndex: number;
   quality: string | null; // e.g. "44.1 kHz / 16 bit"
+  /** detected streaming service (network/BT sources); null otherwise. */
+  service: StreamService | null;
+  /** audio format details (filled from getMetaInfo); null when unavailable. */
+  audio: AudioFormat | null;
 }
 
 export interface DeviceInfo {

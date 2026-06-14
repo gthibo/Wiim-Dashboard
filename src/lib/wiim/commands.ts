@@ -47,35 +47,51 @@ export async function fetchPlayerStatus(ip: string): Promise<PlayerStatus> {
   return parsePlayerStatus(raw);
 }
 
-/** Album art URL + quality string from getMetaInfo (WiiM models). */
-export async function fetchMetaInfo(
-  ip: string,
-): Promise<{ albumArt: string | null; quality: string | null }> {
+export interface MetaInfo {
+  albumArt: string | null; // raw albumArtURI from the device
+  quality: string | null; // formatted "1730 kbps · 44.1 kHz · 24-bit"
+  sampleRate: number | null; // Hz
+  bitDepth: number | null; // bits
+  bitRate: number | null; // kbps
+}
+
+const EMPTY_META: MetaInfo = {
+  albumArt: null,
+  quality: null,
+  sampleRate: null,
+  bitDepth: null,
+  bitRate: null,
+};
+
+/** Album art URL + quality string + raw audio numbers from getMetaInfo. */
+export async function fetchMetaInfo(ip: string): Promise<MetaInfo> {
   try {
     const text = await send(ip, Cmd.metaInfo, 5000);
     const raw = safeJson<{ metaData?: Record<string, unknown> }>(text);
     const m = raw?.metaData;
-    if (!m) return { albumArt: null, quality: null };
+    if (!m) return EMPTY_META;
     const art = typeof m.albumArtURI === "string" && m.albumArtURI ? m.albumArtURI : null;
+    // Fields are strings; firmware sometimes reports the literal "unknow".
     const sr = Number(m.sampleRate);
     const bd = Number(m.bitDepth);
     const br = Number(m.bitRate);
+    const sampleRate = Number.isFinite(sr) && sr > 0 ? sr : null;
+    const bitDepth = Number.isFinite(bd) && bd > 0 ? bd : null;
+    // bitRate may be reported in bps or kbps depending on firmware.
+    const bitRate =
+      Number.isFinite(br) && br > 0 ? (br >= 100000 ? Math.round(br / 1000) : Math.round(br)) : null;
+
     const parts: string[] = [];
     // Bitrate first, then sample rate, then bit depth.
-    if (Number.isFinite(br) && br > 0) {
-      // bitRate may be reported in bps or kbps depending on firmware.
-      // Always show kbps (no Mbps conversion) — e.g. "2900 kbps".
-      const kbps = br >= 100000 ? Math.round(br / 1000) : Math.round(br);
-      parts.push(`${kbps} kbps`);
+    if (bitRate != null) parts.push(`${bitRate} kbps`); // kbps only — no Mbps conversion
+    if (sampleRate != null) {
+      // kHz with up to 1 decimal, trimming a trailing ".0" (44.1, 48, 192).
+      parts.push(`${(sampleRate / 1000).toFixed(1).replace(/\.0$/, "")} kHz`);
     }
-    if (Number.isFinite(sr) && sr > 0) {
-      // Show kHz with up to 1 decimal, trimming a trailing ".0" (44.1, 48, 192).
-      parts.push(`${(sr / 1000).toFixed(1).replace(/\.0$/, "")} kHz`);
-    }
-    if (Number.isFinite(bd) && bd > 0) parts.push(`${bd}-bit`);
-    return { albumArt: art, quality: parts.join(" · ") || null };
+    if (bitDepth != null) parts.push(`${bitDepth}-bit`);
+    return { albumArt: art, quality: parts.join(" · ") || null, sampleRate, bitDepth, bitRate };
   } catch {
-    return { albumArt: null, quality: null };
+    return EMPTY_META;
   }
 }
 
