@@ -112,6 +112,27 @@ export async function scrobble(creds: LastfmCreds, t: ScrobbleTrack): Promise<vo
   await call("track.scrobble", p, creds, true);
 }
 
+/** Whether `username` has loved this track (track.getInfo — public, unsigned). */
+export async function getTrackLoved(
+  creds: LastfmCreds,
+  artist: string,
+  track: string,
+  username: string,
+): Promise<boolean> {
+  const usp = new URLSearchParams({
+    method: "track.getInfo",
+    api_key: creds.apiKey,
+    artist,
+    track,
+    username,
+    autocorrect: "1",
+    format: "json",
+  });
+  const res = await fetch(`${ENDPOINT}?${usp.toString()}`);
+  const data = (await res.json().catch(() => ({}))) as { track?: { userloved?: string } };
+  return data.track?.userloved === "1";
+}
+
 /** track.love / track.unlove. */
 export async function love(
   creds: LastfmCreds,

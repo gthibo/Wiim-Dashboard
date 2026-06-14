@@ -32,6 +32,27 @@ export function safeJson<T = Record<string, unknown>>(text: string): T | null {
   }
 }
 
+/** Decode the common HTML entities WiiM leaves in metadata (e.g. "&amp;" → "&"). */
+function decodeEntities(s: string): string {
+  if (!s.includes("&")) return s;
+  return s
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, h) => safeFromCode(parseInt(h, 16)))
+    .replace(/&#(\d+);/g, (_, d) => safeFromCode(parseInt(d, 10)))
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&(?:apos|#0*39);/gi, "'")
+    .replace(/&amp;/gi, "&"); // last, so "&amp;lt;" → "&lt;" → "<"
+}
+
+function safeFromCode(n: number): string {
+  try {
+    return Number.isFinite(n) ? String.fromCodePoint(n) : "";
+  } catch {
+    return "";
+  }
+}
+
 /** WiiM hex-encodes Title/Artist/Album (UTF-8 bytes). Decode when it looks hex. */
 export function decodeMaybeHex(value: unknown): string | null {
   if (typeof value !== "string") return null;
@@ -47,13 +68,13 @@ export function decodeMaybeHex(value: unknown): string | null {
         const t = decoded.trim();
         const tl = t.toLowerCase();
         if (!t || tl === "unknown" || tl === "un_known") return null;
-        return t;
+        return decodeEntities(t);
       }
     } catch {
       /* fall through */
     }
   }
-  return s;
+  return decodeEntities(s);
 }
 
 function num(v: unknown, fallback = 0): number {
