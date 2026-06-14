@@ -48,6 +48,7 @@ Now-playing & transport · EQ · sub-out · source/output switching · presets w
 | Area | What you get |
 |---|---|
 | **Now playing** | Title / artist / album (hex-decoded), album art (proxied), live progress, seek, play/pause, prev/next, shuffle & repeat |
+| **Album-art theming** | The card tints to the cover's dominant colour with a matching glow, crossfading per track (monochrome covers stay neutral) |
 | **Source-aware art** | Physical inputs (Optical, Line-in, …) show the source icon instead of stale cover art |
 | **Quality readout** | Bit rate · sample rate · bit depth, e.g. `1411 kbps · 44.1 kHz · 16-bit` |
 | **Stream info** | Detected streaming service + logo (Spotify / TIDAL / Qobuz Connect, AirPlay, DLNA, Bluetooth, in-app services) · inferred codec · graded tier — gold **Hi-Res Lossless**, silver **Lossless**, grey **Lossy** |

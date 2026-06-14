@@ -6,6 +6,7 @@ follows [Keep a Changelog](https://keepachangelog.com/).
 ## [Unreleased]
 
 ### Added
+- **Now Playing colour theming** — the card subtly tints to the current album art's dominant colour (with a matching glow around the cover), crossfading on track change. Dark/washed covers are normalised so they still read; monochrome covers tint nothing. Colour is extracted client-side from the displayed cover.
 - **Bluetooth now-playing** — track title/artist/album (via `getMetaInfo` / AVRCP, since `getPlayerStatusEx` leaves them empty for BT) plus the connected source device, e.g. "Bluetooth · @illiano-iPadPro" (from `getbtstatus`). Bluetooth scrobbling works too, using a wall-clock eligibility rule (BT reports no position/length).
 
 ### Fixed
