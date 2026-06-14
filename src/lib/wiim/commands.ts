@@ -145,16 +145,24 @@ export async function control(
   assertAccepted(text, command);
 }
 
-export async function fetchEq(ip: string): Promise<EqStatus> {
-  const [statText, listText] = await Promise.all([
-    send(ip, Cmd.eqStat).catch(() => ""),
-    send(ip, Cmd.eqList).catch(() => ""),
-  ]);
-  return {
-    enabled: parseEqStat(statText),
-    current: null,
-    presets: parseEqList(listText),
-  };
+// EQ preset names never change for a device → cache to cut per-poll calls.
+const eqListCache = new Map<string, { at: number; list: string[] }>();
+const EQ_LIST_TTL_MS = 30_000;
+
+async function getEqList(ip: string): Promise<string[]> {
+  const c = eqListCache.get(ip);
+  if (c && Date.now() - c.at < EQ_LIST_TTL_MS) return c.list;
+  const list = parseEqList(await send(ip, Cmd.eqList).catch(() => ""));
+  if (list.length > 0) eqListCache.set(ip, { at: Date.now(), list });
+  return list;
+}
+
+/** EQ status, or null when the device has no EQ (so the card auto-hides). */
+export async function fetchEq(ip: string): Promise<EqStatus | null> {
+  const presets = await getEqList(ip);
+  if (presets.length === 0) return null;
+  const statText = await send(ip, Cmd.eqStat).catch(() => "");
+  return { enabled: parseEqStat(statText), current: null, presets };
 }
 
 export async function setEq(

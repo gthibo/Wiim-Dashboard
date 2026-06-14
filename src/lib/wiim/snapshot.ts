@@ -27,7 +27,9 @@ export async function getDeviceSnapshot(device: PollableDevice): Promise<DeviceS
     fetchMetaInfo(device.ip),
     caps?.subwoofer ? fetchSubwoofer(device.ip) : Promise.resolve(null),
     caps?.outputSwitch ? fetchOutput(device.ip) : Promise.resolve(null),
-    caps?.equalizer ? fetchEq(device.ip) : Promise.resolve(null),
+    // EQ is self-detecting (returns null when unsupported), so fetch it
+    // regardless of cached capabilities — fixes EQ hidden on stale caps.
+    fetchEq(device.ip),
     caps?.presetCount ? fetchPresets(device.ip, caps.presetCount) : Promise.resolve(null),
   ]);
 

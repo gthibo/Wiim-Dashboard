@@ -125,9 +125,7 @@ export function Dashboard({ initialDevices }: { initialDevices: DeviceListItem[]
                   onChanged={refresh}
                 />
               )}
-              {caps?.equalizer && snap.eq && (
-                <EqCard deviceId={did} eq={snap.eq} onChanged={refresh} />
-              )}
+              {snap.eq && <EqCard deviceId={did} eq={snap.eq} onChanged={refresh} />}
               {caps?.subwoofer && snap.sub && (
                 <SubCard deviceId={did} sub={snap.sub} onChanged={refresh} />
               )}
