@@ -40,7 +40,14 @@ export function VerticalSlider({
       aria-label={ariaLabel}
     >
       <SliderPrimitive.Track className="relative w-1.5 grow overflow-hidden rounded-full bg-white/10">
-        <SliderPrimitive.Range className="absolute w-full rounded-full bg-gradient-to-t from-primary to-accent" />
+        {/* Explicit gradient — Tailwind's bg-gradient-* helper renders dark on
+            iOS WebKit (the --tw-gradient-* vars aren't parsed there). */}
+        <SliderPrimitive.Range
+          className="absolute w-full rounded-full"
+          style={{
+            backgroundImage: "linear-gradient(to top, hsl(var(--primary)), hsl(var(--accent)))",
+          }}
+        />
       </SliderPrimitive.Track>
       <SliderPrimitive.Thumb
         className="block size-4 rounded-full border-2 border-primary bg-white shadow-md shadow-primary/30 transition-transform focus-ring active:scale-110 disabled:opacity-50"

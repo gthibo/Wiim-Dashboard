@@ -39,7 +39,14 @@ export function Slider({
       aria-label={rest["aria-label"]}
     >
       <SliderPrimitive.Track className="relative h-2 w-full grow overflow-hidden rounded-full bg-white/10">
-        <SliderPrimitive.Range className="absolute h-full rounded-full bg-gradient-to-r from-primary to-accent" />
+        {/* Explicit gradient (not Tailwind's bg-gradient-* helper, which iOS
+            WebKit fails to parse → the fill rendered dark on iPad). */}
+        <SliderPrimitive.Range
+          className="absolute h-full rounded-full"
+          style={{
+            backgroundImage: "linear-gradient(to right, hsl(var(--primary)), hsl(var(--accent)))",
+          }}
+        />
       </SliderPrimitive.Track>
       <SliderPrimitive.Thumb
         className="block size-5 rounded-full border-2 border-primary bg-white shadow-lg shadow-primary/30 transition-transform focus-ring active:scale-110 disabled:opacity-50"
