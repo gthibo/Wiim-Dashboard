@@ -209,6 +209,23 @@ export async function wiimRequest(
   });
 }
 
+/** Detect an image MIME type from the leading magic bytes (some sources — e.g.
+ *  WiiM's cloud CDN — mislabel images as application/octet-stream). */
+function sniffImageType(buf: Buffer): string | null {
+  if (buf.length < 12) return null;
+  if (buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return "image/jpeg";
+  if (buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47) return "image/png";
+  if (buf[0] === 0x47 && buf[1] === 0x49 && buf[2] === 0x46) return "image/gif";
+  if (
+    buf[0] === 0x52 && buf[1] === 0x49 && buf[2] === 0x46 && buf[3] === 0x46 &&
+    buf[8] === 0x57 && buf[9] === 0x45 && buf[10] === 0x42 && buf[11] === 0x50
+  ) {
+    return "image/webp";
+  }
+  if (buf[0] === 0x42 && buf[1] === 0x4d) return "image/bmp";
+  return null;
+}
+
 /**
  * Fetch album art. SSRF policy:
  *  - A PRIVATE/LAN target is only allowed if it is the device's own host
@@ -262,11 +279,14 @@ export async function wiimFetchRaw(
       });
       res.on("end", () => {
         clearTimeout(timer);
-        resolve({
-          status: res.statusCode ?? 0,
-          body: Buffer.concat(chunks),
-          contentType: (res.headers["content-type"] as string) || "image/jpeg",
-        });
+        const body = Buffer.concat(chunks);
+        let contentType = (res.headers["content-type"] as string) || "";
+        // Correct mislabeled images (octet-stream / missing type) by sniffing
+        // the bytes, so cloud-CDN artwork isn't dropped by the image/* check.
+        if (!contentType.startsWith("image/")) {
+          contentType = sniffImageType(body) ?? (contentType || "image/jpeg");
+        }
+        resolve({ status: res.statusCode ?? 0, body, contentType });
       });
     });
     req.on("error", (err: Error) => {

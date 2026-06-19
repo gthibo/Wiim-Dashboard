@@ -10,6 +10,7 @@ follows [Keep a Changelog](https://keepachangelog.com/).
 - **Bluetooth now-playing** — track title/artist/album (via `getMetaInfo` / AVRCP, since `getPlayerStatusEx` leaves them empty for BT) plus the connected source device, e.g. "Bluetooth · @illiano-iPadPro" (from `getbtstatus`). Bluetooth scrobbling works too, using a wall-clock eligibility rule (BT reports no position/length).
 
 ### Fixed
+- **Cloud-CDN artwork** — album art and preset tiles served by WiiM's cloud CDN (`*.wiimhome.com`) were dropped because the CDN mislabels them as `application/octet-stream`. The art proxy now sniffs the image magic bytes and corrects the type, keeping the SSRF guard / TLS verification / IP-pinning intact. Thanks to @gthibo for the report and original fix (#1, #2).
 - The **WiiM Vibelink Amp** is no longer listed as a supported device — it's a passive power amplifier with no network / HTTP API, so it can't be controlled.
 
 ## [0.2.0] — 2026-06-14
