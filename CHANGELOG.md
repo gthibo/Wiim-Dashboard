@@ -3,6 +3,28 @@
 All notable changes to this project are documented here. The format loosely
 follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.3.0] — 2026-06-26
+
+A big feature drop — auto-imported input names, a fullscreen kiosk/wall-display mode with synced lyrics, a sleep timer, Last.fm listening stats, and richer device info (Wi-Fi signal, USB DAC).
+
+### Added
+- **Auto-imported input names** — the dashboard now reads the custom input names you set in the WiiM app (`getModeRename`) and uses them as the default source labels, so renamed inputs (e.g. "Turntable", "TV") show up automatically without re-typing them here. Your own per-device names still win; the WiiM-app name is the fallback before the generic label.
+- **Kiosk / wall-display mode** — a chrome-free fullscreen now-playing view built around the spinning vinyl, for wall-mounted tablets and vinyl-wall setups. Toggle it from the artwork view switcher.
+- **Synced lyrics** — a lyrics view (cover / vinyl / **lyrics** / fullscreen toggle) that auto-scrolls to the current line and lets you tap a line to seek. Lyrics come from [LRCLIB](https://lrclib.net/) (free, key-less) via a server-side route that parses LRC into timed lines and caches them; falls back to plain lyrics, then "No lyrics found". Shown only when the track has an artist + title.
+- **Sleep timer** — a 🌙 button on the Now Playing card sets a 15–120 min timer that pauses the device when it expires. Like the scrobbler it runs **server-side**, so it fires even with the browser closed; the button shows a live countdown with one-tap cancel.
+- **Last.fm stats panel** — when Last.fm is connected, a card shows your top artists and top tracks for a selectable period (7 days / month / all time) plus total scrobbles. Text-only, so it needs no image proxy or CSP changes.
+- **Wi-Fi signal indicator** — the Device card shows signal-strength bars from `getStatusEx` `RSSI` (or "Ethernet" when wired) instead of a bare dBm number.
+- **USB DAC detection** — a connected USB DAC's name is read from `getSoundCardModeSupportList` (`AUDIO_OUTPUT_UAC_CARD_MODE` → `devName`) and shown on the Device card.
+
+### Changed
+- **Only enabled inputs are shown** — `getAudioInputEnable` reports which physical inputs you've turned off in the WiiM app, and the Source switcher now hides them (always keeping the active one). Shows everything when the device doesn't support the query.
+- **Refined vinyl view** — a public-domain (CC0) record illustration with the album art composited as the spinning centre label (cream label for physical inputs), a metallic tonearm, and a static reflection sheen.
+- **Colour-graded quality chip** — a single pill graded by tier: gold **Hi-Res Lossless**, silver **Lossless**, grey **Lossy** (e.g. `9216 kbps | 24-bit/192 kHz`), reused in the card and the kiosk view.
+- README now has a **GitHub Sponsors** support section.
+
+### Fixed
+- **24-bit hi-res FLAC** is now reported as 24-bit, not 32 — firmware packs the 24 significant bits into 32-bit words and reports the word size; no consumer streaming source is true 32-bit, so 32 is normalised to 24.
+
 ## [0.2.2] — 2026-06-21
 
 Now-playing visual polish — a spinning vinyl view, a clearer bit-rate readout, and the current track in the browser tab.

@@ -14,9 +14,11 @@ Now-playing & transport · EQ · sub-out · source/output switching · presets w
 
 <br/>
 
-<img src="docs/screenshot.webp" alt="Wiim Dashboard — now playing with album-art theming, presets, equalizer" width="520" />
+<img src="docs/screenshot.webp" alt="Wiim Dashboard — now playing with the spinning vinyl view, quality readout and presets" width="520" />
 <br/>
-<img src="docs/screenshot-2.webp" alt="Wiim Dashboard — source, output, sub-out and device info" width="520" />
+<img src="docs/screenshot-2.webp" alt="Wiim Dashboard — per-source graphic equalizer and Last.fm listening stats" width="520" />
+<br/>
+<img src="docs/screenshot-3.webp" alt="Wiim Dashboard — source, output, sub-out and device info" width="520" />
 
 </div>
 
@@ -53,17 +55,22 @@ Now-playing & transport · EQ · sub-out · source/output switching · presets w
 | **Now playing** | Title / artist / album (hex-decoded), album art (proxied), live progress, seek, play/pause, prev/next, shuffle & repeat; current track shown in the browser tab title |
 | **Album-art theming** | The card tints to the cover's dominant colour with a matching glow, crossfading per track (monochrome covers stay neutral) |
 | **Vinyl view** | Toggle the cover for a spinning vinyl record — the cover becomes the centre label, the platter eases up to speed and slows to a stop like a real turntable, and Phono inputs default to it |
+| **Kiosk / wall mode** | A chrome-free fullscreen now-playing view around the spinning vinyl — for wall-mounted tablets and vinyl-wall displays |
+| **Synced lyrics** | A lyrics view that auto-scrolls to the current line (tap a line to seek), via [LRCLIB](https://lrclib.net/) — free, no key |
 | **Source-aware art** | Physical inputs (Optical, Line-in, …) show the source icon instead of stale cover art |
 | **Quality readout** | Bit rate · bit depth · sample rate, e.g. `1411 kbps · 16-bit · 44.1 kHz`, shown as a clean segmented chip |
 | **Stream info** | Detected streaming service + logo (Spotify / TIDAL / Qobuz Connect, AirPlay, DLNA, Bluetooth, in-app services) · inferred codec · graded tier — gold **Hi-Res Lossless**, silver **Lossless**, grey **Lossy** |
 | **Last.fm scrobbling** | Server-side background scrobbler that runs **even with the dashboard closed**; per-device toggle; scrobbles every source (incl. vinyl/optical/USB) |
 | **Last.fm Love** | ❤ button on the Now Playing card — loves/unloves the track on Last.fm (WiiM has no native favorite command) |
+| **Last.fm stats** | Top artists & tracks (7 days / month / all-time) + total scrobbles, when Last.fm is connected |
+| **Sleep timer** | 🌙 set a 15–120 min timer that pauses the device — runs **server-side**, so it fires even with the dashboard closed |
 | **Volume** | Slider **plus −/+ buttons** (touch-friendly on iPad) |
 | **Presets** | Square artwork tiles in a 2×6 grid (count auto-detected per model), tap to play; names + art from `getPresetInfo`; horizontal-scroll on phones |
-| **EQ** | Enable/disable + load named presets (`EQGetList` / `EQLoad`) |
+| **EQ** | Per-source **Graphic (10-band) + Parametric** EQ, plus enable/disable and named presets |
 | **Sub-out** | Level (−15…+15 dB), crossover (30–250 Hz), phase, enable — with −/+ buttons |
 | **Temperature** | CPU + board °C gauge — **amp models only** |
-| **Source switching** | Auto-detected from the device's `plm_support` bitmask; rename inputs per device |
+| **Device info** | Model, firmware, IP, connection — plus a **Wi-Fi signal** indicator (bars from RSSI, or "Ethernet") and a connected **USB DAC** name |
+| **Source switching** | Auto-detected from the device's `plm_support` bitmask; **auto-imports the input names you set in the WiiM app** and hides inputs you've disabled there; rename per device too |
 | **Output switching** | Optical / line-out / coax (+ headphones on Ultra) |
 | **Multiple devices** | Add by IP or LAN scan; per-device **capability detection** shows only what each model supports |
 | **Auth & security** | Single-admin login (Argon2id), server sessions, optional TOTP 2FA, Cloudflare Turnstile, rate-limiting, CSRF, strict nonce-based CSP |
@@ -135,7 +142,7 @@ docker run -d --name wiim-dashboard -p 39446:3000 \
   ghcr.io/illianoaoi/wiim-dashboard:latest
 ```
 
-Pin a version with `:0.1.0` instead of `:latest`. Behind https, drop `COOKIE_SECURE=false` and set `APP_ORIGIN`.
+Pin a version with `:0.3.0` instead of `:latest`. Behind https, drop `COOKIE_SECURE=false` and set `APP_ORIGIN`.
 
 ## First run
 
@@ -148,7 +155,7 @@ Pin a version with `:0.1.0` instead of `:latest`. Behind https, drop `COOKIE_SEC
 - **By IP (recommended):** enter the device's LAN IP (e.g. `192.168.1.50`). The app probes it and saves its capabilities.
 - **LAN scan:** on the Add-device page enter your network range (e.g. `192.168.1.0/24`) and **Scan** — the app probes every host in that /24 in parallel. This works inside Docker bridge networking (unlike SSDP multicast).
 - **SSDP discovery** is also attempted, but only works when the container uses host networking (`network_mode: host` — see comments in `docker-compose.yml`).
-- **Rename sources** per device on the Devices page (the WiiM API doesn't expose the input names you set in the WiiM app, so the dashboard stores its own).
+- **Rename sources** per device on the Devices page. By default the dashboard imports the custom input names you set in the WiiM app (`getModeRename`); a name you set per-device here overrides the imported one.
 
 ## Configuration
 

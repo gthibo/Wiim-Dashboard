@@ -36,7 +36,8 @@ better-sqlite3 (users, sessions, devices, settings)
 |---|---|
 | `client.ts` | Low-level HTTPS transport: self-signed cert bypass + LinkPlay mTLS, **SSRF guard** (resolve → IP-check → pin), album/preset art fetch policy |
 | `constants.ts` | Command builders + numeric enums (sources, outputs, loop modes, sub ranges) mirrored from the official API / python-linkplay |
-| `commands.ts` | High-level typed functions: `fetchPlayerStatus`, `control`, `setEq`, `setSubwoofer`, `switchSource`, `setOutput`, `fetchPresets`, `playPreset`, … + the 30 s preset-list cache |
+| `commands.ts` | High-level typed functions: `fetchPlayerStatus`, `control`, `setSubwoofer`, `switchSource`, `setOutput`, `fetchPresets`, `playPreset`, `fetchModeRename`, `fetchAudioInputEnable`, `fetchUsbDac`, … + the 30 s preset-list cache |
+| `eq.ts` / `eq-constants.ts` | Per-source **graphic + parametric EQ** over the LV2 API — read/write bands, presets, per-source enable/disable — with a firmware kill-switch |
 | `parse.ts` | Tolerant JSON parse, hex decode, HTML-entity decode, status/source/output mappings + the official (asymmetric) read/write loop-mode tables |
 | `now-playing-info.ts` | Best-effort **service + audio-format detection** — the API has no vendor or codec field, so the service comes from the `getPlayerStatusEx` `mode` (Connect/cast codes) or the album-art host, and the codec/quality tier is inferred from bitrate, bit-depth and sample-rate |
 | `capabilities.ts` | Probes a device once and builds its `DeviceCapabilities` (temperature, sub-out, EQ, outputs, sources, preset count) |
@@ -51,6 +52,14 @@ better-sqlite3 (users, sessions, devices, settings)
 ### `src/lib/scrobble/` — background scrobbler (server-only)
 
 `poller.ts`: the long-running scrobble loop. See [Background jobs](#background-jobs).
+
+### `src/lib/lyrics/` — synced lyrics (server-only)
+
+`lrclib.ts`: fetches time-synced lyrics from [LRCLIB](https://lrclib.net/) (free, key-less), parses LRC into timed lines, and caches results; falls back to plain (unsynced) lyrics. Served via `/api/lyrics`.
+
+### `src/lib/sleep/` — sleep timer (server-only)
+
+`timer.ts`: an in-process per-device sleep-timer registry that pauses a device when its timer expires. Like the scrobbler it lives in the Node process, so it survives a closed browser. See [Background jobs](#background-jobs).
 
 ### `src/lib/auth/` — authentication & hardening (server-only)
 
@@ -83,6 +92,10 @@ better-sqlite3 (users, sessions, devices, settings)
 Every 15 s it polls each device whose `scrobbleDevices[id]` flag is set. On a track change it sends `track.updateNowPlaying`; it then sends `track.scrobble` once Last.fm's eligibility rule is met (track longer than 30 s **and** played for at least half its length or 4 minutes, whichever comes first). Per-track-instance dedup plus a backward-position check handle replays.
 
 > **Why scrobbling, not the WiiM heart?** The WiiM HTTP API has **no native favorite/like command** — the app's heart calls each streaming service's own cloud API, which the server can't reach. So "Love" on the Now Playing card is implemented via `track.love`/`track.unlove` instead.
+
+### Sleep timer
+
+`src/lib/sleep/timer.ts` keeps per-device sleep timers in the Node process. Setting one (15–120 min) schedules a `pause`; the snapshot exposes the expiry so the Now Playing button shows a live countdown. Because it's server-side, it fires even with no browser open. Managed via `/api/devices/[id]/sleep` (GET status, POST set/cancel).
 
 ## Capability detection
 
