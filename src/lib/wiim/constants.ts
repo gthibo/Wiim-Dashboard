@@ -34,6 +34,10 @@ export const Cmd = {
   setOutput: (n: number) => `setAudioOutputHardwareMode:${Math.trunc(n)}`,
   // User-assigned input names from the WiiM app ({mode: name}; "Failed" if none).
   getModeRename: "getModeRename",
+  // Which physical inputs are enabled in the WiiM app ({audioInput:[{mode,enable}]}).
+  getAudioInputEnable: "getAudioInputEnable",
+  // Supported output sound-card modes incl. USB DAC (AUDIO_OUTPUT_* + devName).
+  getSoundCardModes: "getSoundCardModeSupportList",
 
   // EQ (WiiM named-preset API)
   eqStat: "EQGetStat",

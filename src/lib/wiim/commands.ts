@@ -169,6 +169,61 @@ export async function fetchModeRename(ip: string): Promise<Record<string, string
   }
 }
 
+/**
+ * Which inputs are enabled in the WiiM app, keyed by SOURCES.key (true = on).
+ * `getAudioInputEnable` → `{ audioInput: [{ mode, enable }] }`. Returns {} when
+ * unsupported, so callers should treat "missing" as "don't filter".
+ */
+export async function fetchAudioInputEnable(ip: string): Promise<Record<string, boolean>> {
+  try {
+    const text = await send(ip, Cmd.getAudioInputEnable, 4000);
+    const raw = safeJson<{ audioInput?: { mode?: unknown; enable?: unknown }[] }>(text);
+    const list = raw?.audioInput;
+    if (!Array.isArray(list)) return {};
+    const out: Record<string, boolean> = {};
+    for (const e of list) {
+      const key = typeof e?.mode === "string" ? RENAME_KEY_TO_SOURCE[normKey(e.mode)] : undefined;
+      if (!key) continue;
+      out[key] = Number(e.enable) !== 0;
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Name of a connected USB DAC, or null. `getSoundCardModeSupportList` lists the
+ * supported output modes; the USB DAC appears as `AUDIO_OUTPUT_UAC_CARD_MODE`
+ * with a `devName`. Parsed defensively (the wrapper shape varies by firmware).
+ */
+export async function fetchUsbDac(ip: string): Promise<string | null> {
+  try {
+    const text = await send(ip, Cmd.getSoundCardModes, 4000);
+    const raw = safeJson<unknown>(text);
+    if (!raw) return null;
+    let dac: string | null = null;
+    const walk = (v: unknown): void => {
+      if (dac || v == null || typeof v !== "object") return;
+      if (Array.isArray(v)) {
+        v.forEach(walk);
+        return;
+      }
+      const o = v as Record<string, unknown>;
+      if (o.mode === "AUDIO_OUTPUT_UAC_CARD_MODE" && typeof o.devName === "string") {
+        const name = o.devName.split(/\s+at\s+/i)[0]?.trim();
+        dac = name || o.devName.trim() || null;
+        return;
+      }
+      Object.values(o).forEach(walk);
+    };
+    walk(raw);
+    return dac;
+  } catch {
+    return null;
+  }
+}
+
 export type ControlAction =
   | "play"
   | "pause"

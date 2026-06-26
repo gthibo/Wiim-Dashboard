@@ -150,6 +150,7 @@ export function Dashboard({ initialDevices }: { initialDevices: DeviceListItem[]
                   currentKey={player.sourceKey}
                   sourceLabels={selectedDevice?.sourceLabels}
                   autoSourceLabels={snap.sourceNames}
+                  disabledSources={snap.disabledSources}
                   onChanged={refresh}
                 />
               )}
@@ -167,7 +168,7 @@ export function Dashboard({ initialDevices }: { initialDevices: DeviceListItem[]
               {vis("temperature") && caps?.temperature && snap.info && (
                 <TempCard cpu={snap.info.temperatureCpu} board={snap.info.temperatureBoard} />
               )}
-              {vis("device") && snap.info && <DeviceInfoCard info={snap.info} />}
+              {vis("device") && snap.info && <DeviceInfoCard info={snap.info} usbDac={snap.usbDac} />}
             </div>
           </div>
         )}

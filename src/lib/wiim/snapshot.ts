@@ -9,6 +9,8 @@ import {
   fetchPresets,
   fetchBtSourceName,
   fetchModeRename,
+  fetchAudioInputEnable,
+  fetchUsbDac,
 } from "./commands";
 import { detectService, inferAudioFormat } from "./now-playing-info";
 import type { DeviceSnapshot, DeviceCapabilities } from "./types";
@@ -23,15 +25,18 @@ export interface PollableDevice {
 export async function getDeviceSnapshot(device: PollableDevice): Promise<DeviceSnapshot> {
   const caps = device.capabilities;
 
-  const [infoR, playerR, metaR, subR, outR, presetsR, renameR] = await Promise.allSettled([
-    fetchDeviceInfo(device.ip),
-    fetchPlayerStatus(device.ip),
-    fetchMetaInfo(device.ip),
-    caps?.subwoofer ? fetchSubwoofer(device.ip) : Promise.resolve(null),
-    caps?.outputSwitch ? fetchOutput(device.ip) : Promise.resolve(null),
-    caps?.presetCount ? fetchPresets(device.ip, caps.presetCount) : Promise.resolve(null),
-    fetchModeRename(device.ip),
-  ]);
+  const [infoR, playerR, metaR, subR, outR, presetsR, renameR, inputEnR, usbDacR] =
+    await Promise.allSettled([
+      fetchDeviceInfo(device.ip),
+      fetchPlayerStatus(device.ip),
+      fetchMetaInfo(device.ip),
+      caps?.subwoofer ? fetchSubwoofer(device.ip) : Promise.resolve(null),
+      caps?.outputSwitch ? fetchOutput(device.ip) : Promise.resolve(null),
+      caps?.presetCount ? fetchPresets(device.ip, caps.presetCount) : Promise.resolve(null),
+      fetchModeRename(device.ip),
+      fetchAudioInputEnable(device.ip),
+      fetchUsbDac(device.ip),
+    ]);
 
   // If both core reads failed, the device is offline/unreachable.
   if (infoR.status === "rejected" && playerR.status === "rejected") {
@@ -111,6 +116,13 @@ export async function getDeviceSnapshot(device: PollableDevice): Promise<DeviceS
     presets,
     capabilities: caps,
     sourceNames: renameR.status === "fulfilled" ? renameR.value : undefined,
+    disabledSources:
+      inputEnR.status === "fulfilled"
+        ? Object.entries(inputEnR.value)
+            .filter(([k, on]) => !on && k !== "wifi")
+            .map(([k]) => k)
+        : undefined,
+    usbDac: usbDacR.status === "fulfilled" ? usbDacR.value : null,
   };
 }
 

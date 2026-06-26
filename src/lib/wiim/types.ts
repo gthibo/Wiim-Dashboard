@@ -161,4 +161,8 @@ export interface DeviceSnapshot {
   capabilities: DeviceCapabilities | null;
   /** custom input names from the WiiM app (getModeRename), keyed by SOURCES.key. */
   sourceNames?: Record<string, string>;
+  /** input source keys disabled in the WiiM app (getAudioInputEnable). */
+  disabledSources?: string[];
+  /** connected USB DAC name (getSoundCardModeSupportList); null if none. */
+  usbDac?: string | null;
 }

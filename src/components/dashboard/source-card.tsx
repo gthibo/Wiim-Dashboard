@@ -14,6 +14,7 @@ export function SourceCard({
   currentKey,
   sourceLabels,
   autoSourceLabels,
+  disabledSources,
   onChanged,
 }: {
   deviceId: string;
@@ -21,12 +22,15 @@ export function SourceCard({
   currentKey: string | null;
   sourceLabels?: Record<string, string>;
   autoSourceLabels?: Record<string, string>;
+  disabledSources?: string[];
   onChanged: () => void;
 }) {
   const toast = useToast();
   const [busyId, setBusyId] = useState<string | null>(null);
 
-  const options = SOURCES.filter((s) => sourceKeys.includes(s.key)).map((s) => ({
+  const options = SOURCES.filter(
+    (s) => sourceKeys.includes(s.key) && (!disabledSources?.includes(s.key) || s.key === currentKey),
+  ).map((s) => ({
     id: s.value,
     label: sourceLabels?.[s.key]?.trim() || autoSourceLabels?.[s.key]?.trim() || s.label,
     icon: s.icon,
