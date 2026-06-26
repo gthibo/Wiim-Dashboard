@@ -43,6 +43,7 @@ Now-playing & transport · EQ · sub-out · source/output switching · presets w
 - [Project structure](#project-structure)
 - [Troubleshooting](#troubleshooting)
 - [Contributing](#contributing)
+- [Support](#support)
 - [License & credits](#license--credits)
 
 ## Features
@@ -260,6 +261,10 @@ src/
 ## Contributing
 
 PRs welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) first. Run `npm run typecheck && npm run build` before opening a PR.
+
+## Support
+
+If Wiim Dashboard is useful to you, you can support its continued development through [GitHub Sponsors](https://github.com/sponsors/illianoaoi) — completely optional, and genuinely appreciated. ❤️
 
 ## License & credits
 
