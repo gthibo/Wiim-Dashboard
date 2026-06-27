@@ -3,6 +3,17 @@
 All notable changes to this project are documented here. The format loosely
 follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.3.2] — 2026-06-27
+
+Album art for local files, plus friendlier docs for newcomers.
+
+### Added
+- **Album-art fallback for local files** — when a track exposes no embedded cover (common with local / NAS / USB files), the dashboard now looks one up by artist + album via the keyless iTunes Search API. Results are cached and matched by album name, so it never shows the wrong cover. Disable with `WIIM_ARTWORK_FALLBACK=false`.
+- **Easy-install guide & FAQ** — a plain-English, step-by-step [install guide](docs/EASY-INSTALL.md) (no command-line experience needed) and an [FAQ](docs/FAQ.md) covering the most common questions.
+
+### Changed
+- **Tidier track titles** — filename-style titles from local files (e.g. `01.In_The_Flesh.flac`) are cleaned up to a readable form ("In The Flesh").
+
 ## [0.3.1] — 2026-06-26
 
 Reliability + distribution: gentler on the device, and now on Docker Hub too.
