@@ -78,6 +78,7 @@ export async function getDeviceSnapshot(device: PollableDevice): Promise<DeviceS
     player.title = player.title ?? meta.title;
     player.artist = player.artist ?? meta.artist;
     player.album = player.album ?? meta.album;
+    if (player.title) player.title = tidyTrackTitle(player.title);
     // Detect the streaming service (mode + raw art host) and infer the format.
     player.service = detectService(player.sourceMode, meta.albumArt);
     player.audio = inferAudioFormat(
@@ -91,9 +92,12 @@ export async function getDeviceSnapshot(device: PollableDevice): Promise<DeviceS
       const dev = await fetchBtSourceName(device.ip).catch(() => null);
       if (dev) player.service = { ...player.service, detail: dev };
     }
-    if (meta.albumArt) {
+    // Show art when the device provides it, or when we can look one up by
+    // artist + album (local/NAS files often expose no embedded cover). The art
+    // route resolves the actual image either way.
+    if (meta.albumArt || (player.artist && player.album)) {
       const sig = createHash("sha1")
-        .update(`${player.title ?? ""}|${player.artist ?? ""}|${meta.albumArt}`)
+        .update(`${player.title ?? ""}|${player.artist ?? ""}|${player.album ?? ""}|${meta.albumArt ?? "lookup"}`)
         .digest("hex")
         .slice(0, 12);
       player.albumArt = `/api/devices/${device.id}/art?sig=${sig}`;
@@ -126,6 +130,24 @@ export async function getDeviceSnapshot(device: PollableDevice): Promise<DeviceS
     usbDac: usbDacR.status === "fulfilled" ? usbDacR.value : null,
     sleepExpiresAt: getSleep(device.id),
   };
+}
+
+/** Audio-file extensions used to recognise when a "title" is really a filename. */
+const AUDIO_FILE_EXT = /\.(flac|mp3|wav|m4a|aac|ogg|opus|dsf|dff|aif|aiff|wma|alac|ape)$/i;
+
+/**
+ * Local/NAS files often report the raw filename as the title (e.g.
+ * "01.In_The_Flesh.flac"). When a title is clearly a filename, drop the
+ * extension + any leading track number and turn underscores into spaces.
+ */
+function tidyTrackTitle(title: string): string {
+  if (!AUDIO_FILE_EXT.test(title)) return title;
+  const cleaned = title
+    .replace(AUDIO_FILE_EXT, "")
+    .replace(/^\s*\d{1,3}\s*[.\-_)]\s*/, "")
+    .replace(/_/g, " ")
+    .trim();
+  return cleaned || title;
 }
 
 function reason(r: PromiseSettledResult<unknown>): string | undefined {

@@ -3,6 +3,7 @@ import { guard } from "@/lib/api";
 import { resolveDevice } from "@/lib/device-route";
 import { fetchMetaInfo } from "@/lib/wiim/commands";
 import { wiimFetchRaw } from "@/lib/wiim/client";
+import { lookupAlbumArt } from "@/lib/artwork/itunes";
 
 export const dynamic = "force-dynamic";
 
@@ -29,13 +30,19 @@ export async function GET(req: Request, { params }: Params) {
 
   try {
     const meta = await fetchMetaInfo(r.device.host);
-    if (!meta.albumArt) return fallback();
+    // Use the device's own art if present; otherwise fall back to an external
+    // lookup by artist + album — local/NAS files often expose no embedded cover.
+    let artSrc = meta.albumArt;
+    if (!artSrc && meta.artist && meta.album) {
+      artSrc = await lookupAlbumArt(meta.artist, meta.album);
+    }
+    if (!artSrc) return fallback();
 
     let url: URL;
     try {
-      url = new URL(meta.albumArt);
+      url = new URL(artSrc);
     } catch {
-      url = new URL(meta.albumArt, `https://${r.device.host}`);
+      url = new URL(artSrc, `https://${r.device.host}`);
     }
 
     // SSRF-guarded: private targets must be the device itself; public targets

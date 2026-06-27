@@ -174,6 +174,7 @@ All configuration is environment variables (see `.env.example`):
 | `TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET_KEY` | — | Optional; can also be set in **Settings** |
 | `WIIM_CLIENT_CERT_PATH` / `WIIM_CLIENT_KEY_PATH` | — | Optional mTLS override (a working LinkPlay cert is embedded) |
 | `WIIM_DEVICE_CONCURRENCY` | `4` | Max concurrent `httpapi` requests per device — lower to `1`–`2` for older/flaky devices that choke on parallel bursts |
+| `WIIM_ARTWORK_FALLBACK` | `true` | Look up cover art by artist + album (iTunes, keyless) when a track has no embedded art (e.g. local files); set `false` to disable external lookups |
 
 The dashboard's polling interval, Turnstile keys and per-device source names are managed in the **Settings** and **Devices** pages and stored in SQLite. **Last.fm scrobbling** is configured entirely in-app (Settings → Last.fm Scrobbling) — no new env var is needed.
 
