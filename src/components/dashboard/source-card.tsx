@@ -29,7 +29,11 @@ export function SourceCard({
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const options = SOURCES.filter(
-    (s) => sourceKeys.includes(s.key) && (!disabledSources?.includes(s.key) || s.key === currentKey),
+    // Always show the active source — even if plm_support didn't flag it (USB)
+    // or the WiiM app marked it disabled — so you can always switch back to it.
+    (s) =>
+      (sourceKeys.includes(s.key) || s.key === currentKey) &&
+      (!disabledSources?.includes(s.key) || s.key === currentKey),
   ).map((s) => ({
     id: s.value,
     label: sourceLabels?.[s.key]?.trim() || autoSourceLabels?.[s.key]?.trim() || s.label,

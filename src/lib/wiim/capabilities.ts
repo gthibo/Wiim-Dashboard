@@ -14,7 +14,7 @@ function parsePlmSupport(raw: Record<string, unknown>): number {
   return Number.isFinite(hex) ? hex : 0;
 }
 
-function deriveSources(raw: Record<string, unknown>): string[] {
+function deriveSources(raw: Record<string, unknown>, project: string): string[] {
   const mask = parsePlmSupport(raw);
   const keys: string[] = ["wifi"]; // network is always available
   if (mask > 0) {
@@ -25,6 +25,10 @@ function deriveSources(raw: Record<string, unknown>): string[] {
     // No bitmask exposed — offer a conservative, common default set.
     keys.push("bluetooth", "line-in", "optical");
   }
+  // WiiM's plm_support bitmask is unreliable for USB — the Ultra's USB-drive
+  // input is often not flagged, so offer it explicitly. (A USB-DAC source, if
+  // used, is surfaced by the "always show the active source" rule in the UI.)
+  if (project.includes("ultra")) keys.push("udisk");
   // de-dupe, preserve SOURCES order
   const set = new Set(keys);
   return SOURCES.filter((s) => set.has(s.key)).map((s) => s.key);
@@ -89,7 +93,7 @@ export async function detectCapabilities(
       subwoofer,
       equalizer,
       outputSwitch,
-      sources: deriveSources(raw),
+      sources: deriveSources(raw, project),
       outputs,
       isAmp,
     },
