@@ -68,9 +68,17 @@ export async function detectCapabilities(
   const equalizer = eqSupportFlag || parseEqList(eqListText).length > 0;
 
   const subJson = safeJson<Record<string, unknown>>(subText);
+  // Both real and sub-less devices answer getSubLPF, so level/status presence
+  // can't discriminate: a device without sub-out hardware returns a generic
+  // default template ({status,output_mode,cross,phase,level,mix_sub,main_filter,
+  // sub_filter,sub_delay} with all floats as N.000000), while hardware with an
+  // actual sub-out subsystem additionally returns `plugged` (physical-connection
+  // state), `delay_main_sub`, and `linein_delay`. Key off `plugged` presence
+  // (not its 0/1 value) so the capability tracks the hardware, not the live
+  // connection — the settings panel handles hiding it when unwanted.
   const subwoofer =
     !!subJson &&
-    (subJson.level != null || subJson.status != null) &&
+    subJson.plugged != null &&
     !subText.toLowerCase().includes("unknown command");
 
   const outJson = safeJson<Record<string, unknown>>(outText);

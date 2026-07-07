@@ -129,42 +129,9 @@ export function VinylDisc({
         }}
       />
 
-      {/* Tonearm — overlaid, does not spin. Arm runs through the pivot and
-          headshell centres; positions picked to rest on the outer grooves. */}
-      <svg
-        viewBox="0 0 220 220"
-        className="pointer-events-none absolute inset-0 size-full overflow-visible"
-        aria-hidden="true"
-      >
-        <defs>
-          <filter id="tonearm-shadow" x="-40%" y="-40%" width="180%" height="180%">
-            <feGaussianBlur stdDeviation="2.2" />
-          </filter>
-        </defs>
-        {/* soft drop shadow */}
-        <g opacity="0.28" filter="url(#tonearm-shadow)" transform="translate(2.5,3.5)">
-          <rect x="124.02" y="78.7" width="123.97" height="4.6" rx="2.3" fill="#000" transform="rotate(107.9 186 81)" />
-          <rect x="159" y="133" width="16" height="14" rx="2.5" fill="#000" transform="rotate(107.9 167 140)" />
-        </g>
-        {/* arm tube (centre line: pivot 205,22 → headshell 167,140) */}
-        <rect x="124.02" y="78.7" width="123.97" height="4.6" rx="2.3" fill="#9a9aa1" transform="rotate(107.9 186 81)" />
-        {/* headshell, centred on the arm end */}
-        <g transform="rotate(107.9 167 140)">
-          <rect x="159" y="133" width="16" height="14" rx="2.5" fill="#3a3a40" />
-          <rect x="159" y="133" width="16" height="3.5" rx="1.5" fill="#c9c9d0" opacity="0.45" />
-        </g>
-        {/* stylus contact */}
-        <circle cx="164.24" cy="148.57" r="1.9" fill="#0c0c10" />
-        {/* counterweight behind the pivot */}
-        <g transform="rotate(107.9 209.9 6.77)">
-          <rect x="204.4" y="0.77" width="11" height="12" rx="3" fill="#8d8d95" />
-          <rect x="204.4" y="0.77" width="11" height="4" rx="2" fill="#bdbdc4" />
-        </g>
-        {/* pivot bearing (bigger), centred on the arm base */}
-        <circle cx="205" cy="22" r="11" fill="#2c2c31" />
-        <circle cx="201.15" cy="18.15" r="3.3" fill="#dadae0" opacity="0.85" />
-        <circle cx="209.4" cy="26.95" r="1.6" fill="#6a6a72" />
-      </svg>
+      {/* SHOWA RE-SKIN: SVG tonearm removed — replaced by a photo tonearm
+          (tonearm2.png) positioned in CubbyArt as an absolute sibling layer,
+          outside the VinylDisc component so it doesn't spin with the record. */}
     </div>
   );
 }

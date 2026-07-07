@@ -22,6 +22,20 @@ export interface PollableDevice {
   capabilities: DeviceCapabilities | null;
 }
 
+/**
+ * Poll-delta transport memory for vendor-push sources (Plex/DLNA), keyed by
+ * device id. These sessions report a permanently-stale `status:stop` plus a
+ * `curpos` that reflects the real track position, so a SINGLE snapshot can't
+ * tell play from stop (confirmed against captured payloads: stopping the player
+ * left status unchanged and curpos still advanced). We instead compare position
+ * across consecutive polls: advanced ⇒ playing, frozen ⇒ stopped. Inherently
+ * one poll behind, and can't distinguish stop from pause (both freeze) — both
+ * acceptable, accepted limitations. Only consulted for the vendor-push case;
+ * every honest source keeps the device's own reported state untouched.
+ */
+const vendorTransport = new Map<string, { position: number; at: number; playing: boolean }>();
+const VENDOR_TRANSPORT_TTL_MS = 60_000;
+
 /** Fetch a complete, normalised snapshot for one device in a single round. */
 export async function getDeviceSnapshot(device: PollableDevice): Promise<DeviceSnapshot> {
   const caps = device.capabilities;
@@ -79,8 +93,11 @@ export async function getDeviceSnapshot(device: PollableDevice): Promise<DeviceS
     player.artist = player.artist ?? meta.artist;
     player.album = player.album ?? meta.album;
     if (player.title) player.title = tidyTrackTitle(player.title);
-    // Detect the streaming service (mode + raw art host) and infer the format.
-    player.service = detectService(player.sourceMode, meta.albumArt);
+    // Detect the streaming service (mode + raw art host + vendor) and infer
+    // the format. `vendor` lets DLNA/UPnP push sessions (Plex on mode 99) be
+    // named and treated as a network source even though their mode isn't a
+    // known streaming code.
+    player.service = detectService(player.sourceMode, meta.albumArt, player.vendor);
     player.audio = inferAudioFormat(
       player.service?.key ?? null,
       meta.sampleRate,
@@ -101,6 +118,25 @@ export async function getDeviceSnapshot(device: PollableDevice): Promise<DeviceS
         .digest("hex")
         .slice(0, 12);
       player.albumArt = `/api/devices/${device.id}/art?sig=${sig}`;
+    }
+
+    // Poll-delta transport for the vendor-push quirk (Plex on mode 99): the
+    // device's `status` is permanently "stop" and useless here, so derive
+    // play/stop by whether `position` advanced since the previous poll. Only
+    // for this exact signature (mode 99 + vendor) — every other source keeps
+    // its honest device-reported state. See the vendorTransport note above.
+    if (player.vendor && player.sourceMode === "99") {
+      const now = Date.now();
+      const prev = vendorTransport.get(device.id);
+      const fresh = prev && now - prev.at < VENDOR_TRANSPORT_TTL_MS;
+      // First sight (or stale memory): trust nothing yet — assume playing so a
+      // freshly-cast stream isn't shown frozen for one poll. Thereafter, the
+      // position delta is authoritative. (A track change resets position and
+      // reads as "stopped" for a single poll until it climbs past the stored
+      // value — a brief, self-correcting blip.)
+      const playing = !fresh ? true : player.position > prev!.position;
+      vendorTransport.set(device.id, { position: player.position, at: now, playing });
+      player.state = playing ? "playing" : "stopped";
     }
   }
 

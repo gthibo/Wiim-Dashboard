@@ -5,13 +5,16 @@ import { parseBody } from "@/lib/validate";
 import { resolveDevice, runDevice } from "@/lib/device-route";
 import { getSourceLabels } from "@/lib/db/settings";
 import { SOURCES } from "@/lib/wiim/constants";
-import { GRAPHIC_BANDS, PEQ_LETTERS, PEQ_RANGE } from "@/lib/wiim/eq-constants";
+import { GRAPHIC_BANDS, PEQ_LETTERS, PEQ_LETTERS_ALL, PEQ_RANGE } from "@/lib/wiim/eq-constants";
 import {
   eqSupported,
   getSourceState,
   getPresets,
   setGraphicBands,
   setParametricBand,
+  setParametricChannelMode,
+  resetGraphic,
+  resetParametric,
   setEnabled,
   loadPreset,
   savePreset,
@@ -74,7 +77,7 @@ export async function GET(req: Request, { params }: Params) {
 }
 
 const ParamName = z.enum(GRAPHIC_BANDS.map((b) => b.param) as [string, ...string[]]);
-const Letter = z.enum(PEQ_LETTERS as unknown as [string, ...string[]]);
+const Letter = z.enum(PEQ_LETTERS_ALL as unknown as [string, ...string[]]);
 const Type = z.enum(["graphic", "parametric"]);
 const gain = z.number().min(PEQ_RANGE.gainMin).max(PEQ_RANGE.gainMax);
 
@@ -87,11 +90,23 @@ const Body = z.discriminatedUnion("action", [
   z.object({
     action: z.literal("setParametric"),
     source: z.string().min(1).max(32),
+    channel: z.enum(["stereo", "left", "right"]).default("stereo"),
     letter: Letter,
-    mode: z.number().int().min(-1).max(2).optional(),
+    mode: z.number().int().min(-1).max(5).optional(),
     frequency: z.number().min(PEQ_RANGE.freqMin).max(PEQ_RANGE.freqMax).optional(),
     q: z.number().min(PEQ_RANGE.qMin).max(PEQ_RANGE.qMax).optional(),
     gain: gain.optional(),
+  }),
+  z.object({
+    action: z.literal("setChannelMode"),
+    source: z.string().min(1).max(32),
+    mode: z.enum(["Stereo", "L/R"]),
+  }),
+  z.object({
+    action: z.literal("reset"),
+    source: z.string().min(1).max(32),
+    type: Type,
+    channel: z.enum(["stereo", "left", "right"]).default("stereo"),
   }),
   z.object({ action: z.literal("enable"), source: z.string().min(1).max(32), type: Type, enabled: z.boolean() }),
   z.object({ action: z.literal("loadPreset"), source: z.string().min(1).max(32), type: Type, name: z.string().min(1).max(64) }),
@@ -116,12 +131,20 @@ export async function POST(req: Request, { params }: Params) {
       return runDevice(() => setGraphicBands(ip, d.source, d.bands));
     case "setParametric":
       return runDevice(() =>
-        setParametricBand(ip, d.source, d.letter, {
+        setParametricBand(ip, d.source, d.channel, d.letter, {
           mode: d.mode,
           frequency: d.frequency,
           q: d.q,
           gain: d.gain,
         }),
+      );
+    case "setChannelMode":
+      return runDevice(() => setParametricChannelMode(ip, d.source, d.mode));
+    case "reset":
+      return runDevice(() =>
+        d.type === "graphic"
+          ? resetGraphic(ip, d.source)
+          : resetParametric(ip, d.source, d.channel),
       );
     case "enable":
       return runDevice(() => setEnabled(ip, d.source, d.type, d.enabled));

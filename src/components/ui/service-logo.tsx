@@ -53,6 +53,7 @@ export function ServiceLogo({
       return <Bluetooth className={className} aria-hidden="true" />;
     case "tunein":
     case "dlna":
+    case "vendor":
     case "network":
       return <Radio className={className} aria-hidden="true" />;
     // qobuz, amazon, qplay, roon-without-path, etc.

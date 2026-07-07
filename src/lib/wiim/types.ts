@@ -45,6 +45,8 @@ export interface PlayerStatus {
   sourceLabel: string;
   /** which SOURCES.key this maps to, when identifiable. */
   sourceKey: string | null;
+  /** casting app/vendor (getPlayerStatusEx `vendor`), e.g. "Plex"; null if none. */
+  vendor: string | null;
   repeat: "off" | "one" | "all";
   shuffle: boolean;
   /** numeric EQ preset index from player status (presentational only). */
@@ -101,12 +103,22 @@ export interface GraphicBand {
   gain: number; // dB
 }
 
+export type PeqChannelMode = "stereo" | "lr";
+export type PeqChannel = "stereo" | "left" | "right";
+
 export interface ParametricBand {
-  letter: string; // a–j
-  mode: number; // -1 off, 0 low-shelf, 1 peak, 2 high-shelf
+  letter: string; // a–l (firmware), a–j (UI)
+  mode: number; // -1 off, 0 LS, 1 PK, 2 HS, 3 LP, 5 HP (4 unused)
   frequency: number; // Hz
   q: number;
   gain: number; // dB
+}
+
+export interface EqParametricState {
+  name: string;
+  channelMode: PeqChannelMode;
+  /** stereo: only `stereo` populated. lr: `left` + `right` populated. */
+  bands: Partial<Record<PeqChannel, ParametricBand[]>>;
 }
 
 export interface EqPresets {
@@ -119,7 +131,7 @@ export interface EqSourceState {
   enabled: boolean;
   activeType: EqType | null; // which plugin is currently on for this source
   graphic: { name: string; bands: GraphicBand[] };
-  parametric: { name: string; channelMode: string; bands: ParametricBand[] };
+  parametric: EqParametricState;
 }
 
 /** Full EQ payload for one source (fetched on demand, not in the poll). */

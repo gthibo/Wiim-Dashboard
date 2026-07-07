@@ -33,11 +33,13 @@ export const GRAPHIC_BANDS: { param: string; label: string }[] = [
 
 export const GRAPHIC_GAIN = { min: -12, max: 12, step: 0.5 } as const;
 
-/** Parametric: 10 bands a–j with default 1-octave frequencies. */
+/** Parametric: 12 bands a–l in firmware, 10 (a–j) shown in the UI. */
+export const PEQ_LETTERS_ALL = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l"] as const;
 export const PEQ_LETTERS = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j"] as const;
 
 export const PEQ_DEFAULT_FREQ: Record<string, number> = {
   a: 31.25, b: 62.5, c: 125, d: 250, e: 500, f: 1000, g: 2000, h: 4000, i: 8000, j: 16000,
+  k: 18000, l: 20000,
 };
 
 export const PEQ_RANGE = {
@@ -54,6 +56,8 @@ export const PEQ_MODES: { value: number; label: string }[] = [
   { value: 0, label: "Low Shelf" },
   { value: 1, label: "Peak" },
   { value: 2, label: "High Shelf" },
+  { value: 3, label: "Low Pass" },
+  { value: 5, label: "High Pass" },
 ];
 
 export const CHANNEL_MODE_STEREO = "Stereo";

@@ -93,21 +93,21 @@ export function AppHeader({
           <Link
             href="/devices"
             aria-label="Add device"
-            className="focus-ring grid size-10 place-items-center rounded-xl text-muted-foreground transition hover:bg-white/8 hover:text-foreground"
+            className="focus-ring grid w-10 place-items-center rounded-xl py-[0.7rem] text-muted-foreground transition hover:bg-white/8 hover:text-foreground"
           >
             <Plus className="size-5" />
           </Link>
           <Link
             href="/settings"
             aria-label="Settings"
-            className="focus-ring grid size-10 place-items-center rounded-xl text-muted-foreground transition hover:bg-white/8 hover:text-foreground"
+            className="focus-ring grid w-10 place-items-center rounded-xl py-[0.7rem] text-muted-foreground transition hover:bg-white/8 hover:text-foreground"
           >
             <Settings className="size-5" />
           </Link>
           <button
             onClick={logout}
             aria-label="Sign out"
-            className="focus-ring grid size-10 place-items-center rounded-xl text-muted-foreground transition hover:bg-white/8 hover:text-destructive"
+            className="focus-ring grid w-10 place-items-center rounded-xl py-[0.7rem] text-muted-foreground transition hover:bg-white/8 hover:text-destructive"
           >
             <LogOut className="size-5" />
           </button>

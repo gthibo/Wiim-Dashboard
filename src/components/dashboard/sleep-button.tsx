@@ -57,7 +57,7 @@ export function SleepButton({
               : "text-muted-foreground hover:bg-white/8 hover:text-foreground",
           )}
         >
-          <Moon className="size-3.5" />
+          <Moon style={{ width: "1.2rem", height: "1.2rem", filter: "drop-shadow(0 1px 1px hsl(0 0% 0% / 0.55))" }} />
           {active && <span className="tabular-nums">{remainLabel}</span>}
         </button>
       </DropdownMenu.Trigger>

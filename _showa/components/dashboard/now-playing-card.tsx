@@ -585,7 +585,7 @@ export function NowPlayingCard({
                   onClick={() => setView("lyrics")}
                   aria-label="Lyrics view"
                   aria-pressed={view === "lyrics"}
-                    className={cn(
+                  className={cn(
                       "focus-ring grid size-7 place-items-center rounded-full transition",
                       view === "lyrics"
                         ? "text-[hsl(var(--faceplate)/0.9)]"

@@ -33,6 +33,23 @@ const SERVICE_BY_MODE: Record<string, SvcDef> = {
 /** Generic network modes (in-app streaming) — service guessed from art host. */
 const NETWORK_MODES = new Set(["10", "11", "12", "13", "14", "16", "20", "21", "30"]);
 
+/**
+ * Vendor strings WiiM populates for its OWN internal apps/aggregators, not a
+ * real third-party casting service — confirmed via captured payload:
+ * internet-radio presets (station pulled by the device itself, mode 10-ish)
+ * report vendor: "CustomRadio", WiiM's built-in radio browser, not the
+ * station. Showing that string as the "service" is the exact bug this file
+ * exists to avoid, so it's excluded here rather than trusted like a real
+ * vendor (Plex, BubbleUPnP, etc. all pass through untouched).
+ */
+const INTERNAL_VENDOR_NAMES = new Set(["customradio"]);
+
+/** True for a vendor string that names a real external service/app, not one
+ *  of WiiM's own internal aggregator names above. */
+function isRealVendor(vendor: string | null): vendor is string {
+  return !!vendor && !INTERNAL_VENDOR_NAMES.has(vendor.toLowerCase());
+}
+
 /** Album-art host substrings → service (for the generic network path). */
 const SERVICE_BY_HOST: { match: string; def: SvcDef }[] = [
   { match: "tidal", def: { key: "tidal", name: "TIDAL", logo: "tidal" } },
@@ -52,7 +69,11 @@ const SERVICE_BY_HOST: { match: string; def: SvcDef }[] = [
 ];
 
 /** Resolve the streaming service for the given player `mode` + art URL. */
-export function detectService(mode: string, albumArtURI: string | null): StreamService | null {
+export function detectService(
+  mode: string,
+  albumArtURI: string | null,
+  vendor: string | null = null,
+): StreamService | null {
   const direct = SERVICE_BY_MODE[mode];
   if (direct) return { ...direct };
 
@@ -68,8 +89,27 @@ export function detectService(mode: string, albumArtURI: string | null): StreamS
         if (host.includes(match)) return { ...def };
       }
     }
+    // A real vendor beats the generic fallback even on a generic mode code.
+    // Confirmed via captured payload: a Plex-hosted preset pulled DIRECTLY by
+    // the device (not cast/pushed to it) lands on ordinary mode "10" — same
+    // mode as any other in-app network stream — but still reports
+    // vendor: "Plex". This branch used to return before ever checking vendor,
+    // so that case fell all the way through to a bare "Network" label. Now
+    // checked here too, with the same isRealVendor guard that keeps WiiM's own
+    // "CustomRadio" aggregator name from leaking through for plain radio.
+    if (isRealVendor(vendor)) return { key: "vendor", name: vendor, logo: null };
     return { key: "network", name: "Network", logo: null };
   }
+
+  // DLNA/UPnP push sessions (e.g. Plex cast TO the device on mode 99) report a
+  // `vendor` but no dedicated mode/host match — name the service after the
+  // vendor so the stream-info band shows "Plex" (and inferAudioFormat runs off
+  // getMetaInfo). Distinct key from the plain "network" fallback above: the
+  // now-playing card uses that distinction to know when it's safe to
+  // substitute a remembered preset name (only for the generic, vendor-less
+  // fallback — never here, where the device already gave us a real answer).
+  if (isRealVendor(vendor)) return { key: "vendor", name: vendor, logo: null };
+
   return null; // physical inputs etc. — no info block
 }
 

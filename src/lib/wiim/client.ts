@@ -280,9 +280,30 @@ function sniffImageType(buf: Buffer): string | null {
 }
 
 /**
+ * Recognise a Plex Media Server art URL by SHAPE, not by host/IP. Plex pushes
+ * art via DLNA with a URL like:
+ *   https://<plex-ip>:32400/photo/:/transcode?...&X-Plex-Token=...
+ * Requires BOTH signals together (the literal `/photo/:/` path segment is
+ * distinctive to Plex's API and not used by generic CDNs or other LAN
+ * services, and a non-empty `X-Plex-Token` query param) so a single coincidental
+ * match in adversarial getMetaInfo data can't slip through. Deliberately does
+ * NOT check the host/IP — that's the point (Plex commonly runs on a different
+ * machine than the WiiM, e.g. a NAS), but the shape check keeps the SSRF
+ * boundary narrow: it only widens trust for URLs that actually look like a
+ * Plex art request, not for arbitrary private hosts.
+ */
+function isPlexArtUrl(u: URL): boolean {
+  if (!u.pathname.includes("/photo/:/")) return false;
+  const token = u.searchParams.get("X-Plex-Token");
+  return !!token && token.trim().length > 0;
+}
+
+/**
  * Fetch album art. SSRF policy:
- *  - A PRIVATE/LAN target is only allowed if it is the device's own host
- *    (its art server) — blocks pivoting to other internal hosts / metadata.
+ *  - A PRIVATE/LAN target is allowed if it is the device's own host (its art
+ *    server), OR if the URL has the distinctive shape of a Plex Media Server
+ *    art request (see isPlexArtUrl) — Plex casts via DLNA from its own
+ *    server, which is commonly a different LAN host than the WiiM itself.
  *  - A PUBLIC target (streaming-service cover art) is allowed with normal TLS
  *    verification. Either way the connection is pinned to the validated IP.
  */
@@ -294,7 +315,8 @@ export async function wiimFetchRaw(
   const target = await resolveTarget(u.hostname);
 
   if (target.isPrivate) {
-    if (u.hostname.toLowerCase() !== opts.deviceHost.trim().toLowerCase()) {
+    const isOwnDevice = u.hostname.toLowerCase() === opts.deviceHost.trim().toLowerCase();
+    if (!isOwnDevice && !isPlexArtUrl(u)) {
       throw new WiimError(`Refusing internal art host: ${u.hostname}`, "FORBIDDEN_HOST");
     }
   }
