@@ -8,7 +8,11 @@ Same functionality, completely different aesthetic — inspired by Rams/Loewy-er
 
 > All credit for the underlying architecture, device integration, and feature set goes to [illianoaoi](https://github.com/illianoaoi).
 
-<!-- screenshots go here -->
+<img width="1800" height="2808" alt="Wiim-Dashboard-1" src="https://github.com/user-attachments/assets/d6c84139-5740-455b-b49d-6bbc578488a3" />
+<img width="1800" height="3615" alt="Wiim-Dashboard-2" src="https://github.com/user-attachments/assets/05ae1e8a-cb59-41d5-91b4-c1fcba072934" />
+
+
+
 
 ---
 
