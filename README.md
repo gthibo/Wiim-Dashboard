@@ -1,5 +1,37 @@
 <div align="center">
 
+# Showa Hi-Fi Counter
+
+**A walnut-cabinet hi-fi visual re-skin of [WiiM Dashboard](https://github.com/illianoaoi/Wiim-Dashboard) by illianoaoi.**
+
+Same functionality, completely different aesthetic — inspired by Rams/Loewy-era hardware and 1960s–80s jazz album graphics. Walnut panels, recessed controls, beveled sliders, physical LED indicators, and a design language that treats the dashboard like a piece of equipment rather than a web app.
+
+> All credit for the underlying architecture, device integration, and feature set goes to [illianoaoi](https://github.com/illianoaoi).
+
+<!-- screenshots go here -->
+
+---
+
+## What's different in this fork
+
+**Design tokens:** walnut `#3B2306` · faceplate `#a09287` · rust `#B3441E` · static `#1C1A17`  
+**Fonts:** Antonio (display) · IBM Plex Sans · IBM Plex Mono
+
+**Re-skinned components:**
+- **Now Playing** — two-layer walnut panel, recessed album art cubby, beveled transport controls and volume slider
+- **Source / Output** — physical keycap button rows with PNG LED indicators, collapsible accordion
+- **Presets** — walnut panel, recessed tile grid, rust active state, engraved groove seam
+- **EQ** — PowerKnob, 10-fader graphic EQ, full parametric EQ with per-channel L/R support and 6 filter types
+- **Sub-out** — SubSlider components for level/crossover, phase row with PNG LEDs
+
+**Bug fix (upstream candidate):** subwoofer capability detection now keys on `plugged` field presence in `getSubLPF` response rather than `level`/`status`, eliminating false positives on non-sub-capable LinkPlay devices. See `_showa/SUBWOOFER_CAPS_ISSUE.md` for full details.
+
+**Desktop-only:** this fork targets fixed desktop sizing. Mobile/tablet responsive layout is out of scope.
+
+**Setup is identical to upstream** — see the original README below.
+
+---
+
 # 🎵 Wiim Dashboard
 
 **A self-hosted, dark-themed web dashboard to monitor and control your [WiiM](https://www.wiimhome.com/) (LinkPlay) audio devices.**
