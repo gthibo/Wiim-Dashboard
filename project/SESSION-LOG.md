@@ -24,8 +24,9 @@ Dated entries, newest first. Purpose: let a fresh session (or a fresh person) pi
 
 **Also done this session:** `DOCKERHUB_USERNAME`/`DOCKERHUB_TOKEN` GitHub repo secrets added (Read & Write scope) — Docker Hub publishing is now active, will mirror on the next version-tag push.
 
+**Also done:** all four tasks' diffs reviewed and committed as 5 separate commits (PWA shell, alarm timer, release-path fix + Unraid template, research doc, project docs). `./ringer.py install-agent` run — but note it installs into WSL's own Claude Code config (`~/.claude` on the Linux side), not Windows-side Claude Code (`C:\Users\mrthi\.claude`), which is what this orchestrator session actually runs as. Manually replicated the skill file and hooks to the Windows-side config. Hit and fixed a real gotcha doing this — see GOTCHAS.md ("Windows-side Ringer hooks need MSYS_NO_PATHCONV=1").
+
 **Pending / next up:**
-- Review and commit (or request changes to) the four tasks' diffs.
 - README repositioning for community-facing framing (good candidate for a future Ringer swarm round).
 - Multiroom feature build (research is done, ready to scope into a manifest).
-- `./ringer.py install-agent` not yet run (Phase 4 of the original setup, paused for this discussion).
+- Next session should start fresh — this one has served its purpose.
