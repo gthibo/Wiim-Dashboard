@@ -3,6 +3,7 @@ import { Antonio, IBM_Plex_Sans, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
 import { ToastProvider } from "@/components/toast";
 import { ModalProvider } from "@/components/modal";
+import PwaRegister from "@/components/pwa-register";
 
 /* ============================================================================
    SHOWA HI-FI COUNTER — font loading
@@ -65,6 +66,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       className={`dark ${antonio.variable} ${plexSans.variable} ${plexMono.variable}`}
     >
       <body className="min-h-screen antialiased">
+        <PwaRegister />
         {/* SHOWA RE-SKIN: cabinet woodgrain. A fixed, full-viewport inline
             <svg> behind all content (-z-10), blended soft-light over the
             walnut body gradient from globals.css. Inline SVG in the DOM (NOT a
