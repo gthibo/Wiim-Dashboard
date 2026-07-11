@@ -24,7 +24,7 @@ BRIDGE="${BRIDGE:-vmbr0}"
 STORAGE="${STORAGE:-local-lvm}"        # rootfs storage
 TEMPLATE_STORAGE="${TEMPLATE_STORAGE:-local}"
 PORT="${PORT:-39446}"
-IMAGE="${IMAGE:-illianoaoi/wiim-dashboard:latest}"
+IMAGE="${IMAGE:-gthibo/wiim-dashboard:latest}"
 
 msg() { echo -e "\e[1;34m==>\e[0m $*"; }
 err() { echo -e "\e[1;31mError:\e[0m $*" >&2; exit 1; }

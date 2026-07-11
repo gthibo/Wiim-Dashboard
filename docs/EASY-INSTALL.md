@@ -25,12 +25,12 @@ The **plain-English, step-by-step** way to get Wiim Dashboard running — no com
 2. Copy this **whole line**, paste it, press Enter. **Change the text in quotes** to any long random text — this is your secret key, just mash the keyboard (30+ characters):
 
    ```
-   docker run -d --name wiim-dashboard -p 39446:3000 -e AUTH_SECRET="change-this-to-any-long-random-text" -e COOKIE_SECURE=false -v wiim-data:/data ghcr.io/illianoaoi/wiim-dashboard:latest
+   docker run -d --name wiim-dashboard -p 39446:3000 -e AUTH_SECRET="change-this-to-any-long-random-text" -e COOKIE_SECURE=false -v wiim-data:/data ghcr.io/gthibo/wiim-dashboard:latest
    ```
 
    It downloads the app (first time only) and starts it. When your prompt comes back, it's running. 🎉
 
-> 💡 The app is also on **Docker Hub** as `illianoaoi/wiim-dashboard` if you'd rather search for it in the Docker Desktop UI.
+> 💡 The app is also on **Docker Hub** as `gthibo/wiim-dashboard` if you'd rather search for it in the Docker Desktop UI.
 
 ## Step 3 — Open it in your browser
 - On the **same computer**: go to **http://localhost:39446**
@@ -49,10 +49,10 @@ You'll land on a **first-run setup page** → create your login (username + pass
 | Blank/white page over `http://…` | Make sure `COOKIE_SECURE=false` was in the command (it is, above). Don't use `https://` for a local IP. |
 | Can't reach it from my phone | Use your **computer's** IP, not `localhost`, and make sure the phone is on the same WiFi. |
 | "Device offline" / can't add the WiiM | Re-check the WiiM's IP, that it's powered on, and on the same network. |
-| Update it later | `docker pull ghcr.io/illianoaoi/wiim-dashboard:latest`, then in Docker Desktop delete the container and re-run the Step 2 command. |
+| Update it later | `docker pull ghcr.io/gthibo/wiim-dashboard:latest`, then in Docker Desktop delete the container and re-run the Step 2 command. |
 
 ## Want it reachable from outside your home, over HTTPS?
 That's **optional** and a bit more advanced (a reverse proxy like Zoraxy/Caddy). For home use you don't need it — see the main [README](../README.md#public-access--reverse-proxy) if you ever want to set it up.
 
 ---
-Stuck on any step? Open a [GitHub issue](https://github.com/illianoaoi/Wiim-Dashboard/issues) or ask in the group — happy to help. 🙌
+Stuck on any step? Open a [GitHub issue](https://github.com/gthibo/Wiim-Dashboard/issues) or ask in the group — happy to help. 🙌
