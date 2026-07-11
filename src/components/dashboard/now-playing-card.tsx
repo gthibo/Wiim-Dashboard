@@ -36,6 +36,7 @@ import { QualityPill } from "./quality-pill";
 import { KioskView } from "./kiosk-view";
 import { LyricsView } from "./lyrics-view";
 import { SleepButton } from "./sleep-button";
+import { AlarmButton } from "./alarm-button";
 import { extractColor, type RGB } from "@/lib/client/use-album-color";
 import type { PlayerStatus, StreamService, AudioFormat, LyricLine } from "@/lib/wiim/types";
 
@@ -692,11 +693,18 @@ export function NowPlayingCard({
               top-right above the title, matching the mockup. */}
           <div className="mb-1 flex items-center">
             <div className="ml-auto">
-              <SleepButton
-                deviceId={deviceId}
-                expiresAt={sleepExpiresAt ?? null}
-                onChanged={onChanged}
-              />
+              <div className="flex items-center gap-1">
+                <SleepButton
+                  deviceId={deviceId}
+                  expiresAt={sleepExpiresAt ?? null}
+                  onChanged={onChanged}
+                />
+                <AlarmButton
+                  deviceId={deviceId}
+                  firesAt={null}
+                  onChanged={onChanged}
+                />
+              </div>
             </div>
           </div>
           <div className="flex items-center gap-3">
