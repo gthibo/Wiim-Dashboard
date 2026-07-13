@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import {
@@ -18,6 +18,7 @@ import {
   Cable,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { Slider } from "@/components/ui/slider";
 import { KeycapButton } from "./keycap-button";
 import { useToast } from "@/components/toast";
 import { apiSend, ApiError } from "@/lib/client/api";
@@ -44,6 +45,11 @@ import type { DeviceInfo } from "@/lib/wiim/types";
  * now the only place for device info). Both orphaned files are left on disk,
  * unreferenced — same convention as source-card.tsx/output-card.tsx from
  * Round 21.
+ *
+ * 2026-07-13: multiroom-card.tsx absorbed too, same convention (left on disk,
+ * unreferenced). All three multiroom states (solo/slave/master) now render
+ * inside DeviceSection, between the Add/Settings/Logout tiles and the
+ * Model/Firmware/IP info rows — see MultiroomSection below.
  *
  * Round 25 Pass 3 (screenshot fixes):
  *   - Rows restacked VERTICALLY: SOURCE/OUTPUT label sits ABOVE its keycap
@@ -272,12 +278,14 @@ export function SourceOutputPanel({
             {hasDevice && (
               <div className="w-[600px] shrink-0">
                 <DeviceSection
+                  deviceId={deviceId}
                   devices={devices}
                   selectedId={selectedId}
                   onSelect={onSelectDevice}
                   online={online}
                   info={info}
                   usbDac={usbDac}
+                  onChanged={onChanged}
                 />
               </div>
             )}
@@ -367,24 +375,29 @@ function VSeam() {
 
 /**
  * DEVICE column: header, device switcher, Add Device / Settings / Logout,
- * then a Model/Firmware/IP/Wi-Fi (or Ethernet)/USB-DAC info list — absorbing
- * app-header.tsx + device-info-card.tsx, restyled to the panel's faceplate
- * palette instead of the app's default theme tokens.
+ * a multiroom subsection (solo/slave/master — hidden below 2 devices), then
+ * a Model/Firmware/IP/Wi-Fi (or Ethernet)/USB-DAC info list — absorbing
+ * app-header.tsx + device-info-card.tsx + multiroom-card.tsx, restyled to the
+ * panel's faceplate palette instead of the app's default theme tokens.
  */
 function DeviceSection({
+  deviceId,
   devices,
   selectedId,
   onSelect,
   online,
   info,
   usbDac,
+  onChanged,
 }: {
+  deviceId: string;
   devices: DeviceListItem[];
   selectedId: string | null;
   onSelect: (id: string) => void;
   online: boolean;
   info: DeviceInfo | null;
   usbDac?: string | null;
+  onChanged: () => void;
 }) {
   const selected = devices.find((d) => d.id === selectedId) ?? null;
   const wired = info?.network === "ethernet";
@@ -466,18 +479,23 @@ function DeviceSection({
         <DeviceAction onClick={logout} icon={<LogOut className="size-5" />} label="Logout" />
       </div>
 
+      {info && devices.length >= 2 && (
+        <>
+          <ColumnDivider />
+          <MultiroomSection
+            deviceId={deviceId}
+            devices={devices}
+            role={info.multiroomRole}
+            masterIp={info.multiroomMasterIp}
+            slaves={info.multiroomSlaves}
+            onChanged={onChanged}
+          />
+        </>
+      )}
+
       {info && (
         <>
-          {/* horizontal engraved divider — same recipe as Seam, scoped to the
-              DEVICE column's width. */}
-          <div
-            aria-hidden
-            className="mt-5 h-px shrink-0"
-            style={{
-              background: "hsl(0 0% 0% / 0.55)",
-              boxShadow: "0 1px 0 0 hsl(var(--faceplate) / 0.04)",
-            }}
-          />
+          <ColumnDivider />
           <div className="divide-y divide-[hsl(0_0%_0%/0.4)]">
             <InfoRow icon={<Tag className="size-4" />} label="Model" value={info.model || "—"} />
             <InfoRow icon={<Cpu className="size-4" />} label="Firmware" value={info.firmware || "—"} />
@@ -574,5 +592,341 @@ function SignalBars({ rssi }: { rssi: number }) {
         />
       ))}
     </span>
+  );
+}
+
+/** Horizontal engraved divider, scoped to the DEVICE column's width — same
+ *  recipe used both above and below the multiroom subsection. */
+function ColumnDivider() {
+  return (
+    <div
+      aria-hidden
+      className="mt-5 h-px shrink-0"
+      style={{
+        background: "hsl(0 0% 0% / 0.55)",
+        boxShadow: "0 1px 0 0 hsl(var(--faceplate) / 0.04)",
+      }}
+    />
+  );
+}
+
+/** Resolve a LAN IP to a friendly device name from the devices list. */
+function resolveMultiroomName(ip: string | null, devices: DeviceListItem[]): string {
+  if (!ip) return "Unknown";
+  const match = devices.find((d) => d.info?.ip === ip || d.host === ip);
+  return match?.name ?? ip;
+}
+
+/**
+ * Multiroom subsection (absorbed from multiroom-card.tsx, 2026-07-13) — no
+ * dedicated header, since this is a Device subsection rather than a new
+ * top-level section like Source/Output. Renders solo/slave/master content
+ * depending on this device's current role; caller already gates on
+ * `devices.length >= 2`.
+ */
+function MultiroomSection({
+  deviceId,
+  devices,
+  role,
+  masterIp,
+  slaves,
+  onChanged,
+}: {
+  deviceId: string;
+  devices: DeviceListItem[];
+  role: "solo" | "master" | "slave";
+  masterIp: string | null;
+  slaves: { ip: string; uuid: string; volume: number; mute: boolean }[];
+  onChanged: () => void;
+}) {
+  return (
+    <div className="py-4">
+      {role === "solo" && (
+        <MultiroomSolo deviceId={deviceId} devices={devices} onChanged={onChanged} />
+      )}
+      {role === "slave" && (
+        <MultiroomSlave
+          deviceId={deviceId}
+          masterIp={masterIp}
+          devices={devices}
+          onChanged={onChanged}
+        />
+      )}
+      {role === "master" && (
+        <MultiroomMaster
+          deviceId={deviceId}
+          slaves={slaves}
+          devices={devices}
+          onChanged={onChanged}
+        />
+      )}
+    </div>
+  );
+}
+
+function MultiroomSolo({
+  deviceId,
+  devices,
+  onChanged,
+}: {
+  deviceId: string;
+  devices: DeviceListItem[];
+  onChanged: () => void;
+}) {
+  const toast = useToast();
+  const others = devices.filter((d) => d.id !== deviceId);
+
+  async function join(masterDeviceId: string) {
+    try {
+      await apiSend(`/api/devices/${deviceId}/multiroom`, "POST", {
+        action: "join",
+        masterDeviceId,
+      });
+      onChanged();
+    } catch (e) {
+      toast((e as ApiError).message || "Couldn't join group", "error");
+    }
+  }
+
+  return (
+    <div className="flex items-center justify-between gap-3 text-sm">
+      <span className="text-[hsl(var(--faceplate)/0.55)]">Standalone</span>
+      <DropdownMenu.Root>
+        <DropdownMenu.Trigger asChild>
+          <button
+            type="button"
+            className="control-tile focus-ring rounded-md px-3 py-1.5 text-xs font-medium text-[hsl(var(--faceplate)/0.85)]"
+          >
+            Join group…
+          </button>
+        </DropdownMenu.Trigger>
+        <DropdownMenu.Portal>
+          <DropdownMenu.Content
+            align="end"
+            sideOffset={6}
+            className="glass z-50 min-w-40 rounded-lg p-1.5 shadow-2xl"
+          >
+            <DropdownMenu.Label className="px-3 py-1.5 text-xs text-[hsl(var(--faceplate)/0.5)]">
+              Follow…
+            </DropdownMenu.Label>
+            {others.map((d) => (
+              <DropdownMenu.Item
+                key={d.id}
+                onSelect={() => void join(d.id)}
+                className="flex cursor-pointer items-center rounded-md px-3 py-2 text-sm text-[hsl(var(--faceplate)/0.9)] outline-none transition data-[highlighted]:bg-white/8"
+              >
+                {d.name}
+              </DropdownMenu.Item>
+            ))}
+          </DropdownMenu.Content>
+        </DropdownMenu.Portal>
+      </DropdownMenu.Root>
+    </div>
+  );
+}
+
+function MultiroomSlave({
+  deviceId,
+  masterIp,
+  devices,
+  onChanged,
+}: {
+  deviceId: string;
+  masterIp: string | null;
+  devices: DeviceListItem[];
+  onChanged: () => void;
+}) {
+  const toast = useToast();
+  const masterName = resolveMultiroomName(masterIp, devices);
+
+  async function leave() {
+    try {
+      await apiSend(`/api/devices/${deviceId}/multiroom`, "POST", { action: "leave" });
+      onChanged();
+    } catch (e) {
+      toast((e as ApiError).message || "Couldn't leave group", "error");
+    }
+  }
+
+  return (
+    <div className="flex items-center justify-between gap-3 text-sm">
+      <span className="flex items-center gap-2 text-[hsl(var(--faceplate)/0.55)]">
+        Following:
+        <span className="font-medium text-[hsl(var(--faceplate)/0.9)]">{masterName}</span>
+      </span>
+      <button
+        type="button"
+        onClick={() => void leave()}
+        className="focus-ring text-xs font-medium text-[hsl(var(--primary))] transition hover:text-[hsl(var(--primary)/0.8)]"
+      >
+        Leave
+      </button>
+    </div>
+  );
+}
+
+function MultiroomMaster({
+  deviceId,
+  slaves,
+  devices,
+  onChanged,
+}: {
+  deviceId: string;
+  slaves: { ip: string; uuid: string; volume: number; mute: boolean }[];
+  devices: DeviceListItem[];
+  onChanged: () => void;
+}) {
+  const toast = useToast();
+  const [volume, setVolume] = useState(slaves[0]?.volume ?? 50);
+  const [muted, setMuted] = useState(slaves[0]?.mute ?? false);
+  const [draggingVol, setDraggingVol] = useState(false);
+
+  // Sync from the group's actual reported state (getSlaveList) unless the
+  // user is mid-drag — otherwise a page reload always showed 50 regardless
+  // of the real volume, since local state had no live source before this.
+  useEffect(() => {
+    if (draggingVol || !slaves[0]) return;
+    setVolume(slaves[0].volume);
+    setMuted(slaves[0].mute);
+  }, [slaves, draggingVol]);
+
+  async function kick(slaveIp: string) {
+    try {
+      await apiSend(`/api/devices/${deviceId}/multiroom`, "POST", { action: "kick", slaveIp });
+      onChanged();
+    } catch (e) {
+      toast((e as ApiError).message || "Couldn't kick slave", "error");
+    }
+  }
+
+  async function commitVolume(v: number) {
+    try {
+      await apiSend(`/api/devices/${deviceId}/multiroom`, "POST", {
+        action: "groupVolume",
+        value: v,
+      });
+      onChanged();
+    } catch (e) {
+      toast((e as ApiError).message || "Couldn't set group volume", "error");
+    }
+  }
+
+  async function commitMute(next: boolean) {
+    setMuted(next);
+    try {
+      await apiSend(`/api/devices/${deviceId}/multiroom`, "POST", {
+        action: "groupMute",
+        muted: next,
+      });
+      onChanged();
+    } catch (e) {
+      toast((e as ApiError).message || "Couldn't set group mute", "error");
+      setMuted(!next);
+    }
+  }
+
+  return (
+    <div className="space-y-3">
+      {slaves.length === 0 && (
+        <p className="text-sm text-[hsl(var(--faceplate)/0.5)]">No slaves connected.</p>
+      )}
+      {slaves.map((s) => (
+        <div key={s.ip || s.uuid} className="flex items-center justify-between gap-3 text-sm">
+          <span className="flex min-w-0 items-center gap-2 text-[hsl(var(--faceplate)/0.55)]">
+            Connected:
+            <span className="truncate font-medium text-[hsl(var(--faceplate)/0.9)]">
+              {resolveMultiroomName(s.ip, devices)}
+            </span>
+          </span>
+          <button
+            type="button"
+            onClick={() => void kick(s.ip)}
+            className="focus-ring shrink-0 text-xs font-medium text-[hsl(var(--primary))] transition hover:text-[hsl(var(--primary)/0.8)]"
+          >
+            Kick
+          </button>
+        </div>
+      ))}
+
+      {/* Combined mute + volume row — mirrors the now-playing card's
+          transport-row layout (icon-button | slider | numeric value), with
+          the reduced (1.5rem) power-graphic button standing in for the
+          lucide mute icon there. Labeled (unlike the now-playing icon
+          button) since this one has no surrounding transport row for
+          context, and separated from the slider by a short vertical seam.
+          mt-8 (2rem) rather than the space-y-3 (0.75rem) the slave rows
+          above use — needs the `!` to win over that space-y utility. */}
+      <div className="!mt-8 flex items-center gap-3">
+        <div className="flex shrink-0 flex-col items-center gap-1">
+          <span className="text-[9px] font-medium uppercase tracking-[0.15em] text-[hsl(var(--faceplate)/0.5)]">
+            Mute
+          </span>
+          <MultiroomMuteButton muted={muted} onToggle={() => void commitMute(!muted)} />
+        </div>
+        <div
+          aria-hidden
+          className="h-8 w-px shrink-0"
+          style={{
+            background: "hsl(0 0% 0% / 0.55)",
+            boxShadow: "1px 0 0 0 hsl(var(--faceplate) / 0.04)",
+          }}
+        />
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <div className="flex items-center gap-3">
+            <Slider
+              value={volume}
+              min={0}
+              max={100}
+              variant="volume"
+              onChange={(v) => {
+                setDraggingVol(true);
+                setVolume(v);
+              }}
+              onCommit={(v) => {
+                setDraggingVol(false);
+                void commitVolume(v);
+              }}
+              aria-label="Group volume"
+              className="min-w-0 flex-1"
+            />
+            <span className="w-9 shrink-0 text-right font-mono text-xs tabular-nums text-[hsl(var(--faceplate)/0.6)]">
+              {muted ? "—" : volume}
+            </span>
+          </div>
+          <span className="text-[9px] font-medium uppercase tracking-[0.15em] text-[hsl(var(--faceplate)/0.5)]">
+            Group Volume
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Group-mute toggle — same power-btn.png/power-off-overlay.png recipe as
+ *  sub-card.tsx's PowerKnob, at a reduced 1.5rem (size-6) instead of 2.75rem,
+ *  and driven by mute state instead of enable state: muted shows the
+ *  off-overlay (matches PowerKnob's off-look), unmuted shows the plain
+ *  power-on graphic. */
+function MultiroomMuteButton({ muted, onToggle }: { muted: boolean; onToggle: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-pressed={!muted}
+      aria-label={muted ? "Unmute group" : "Mute group"}
+      className="focus-ring relative block size-6 shrink-0 rounded-full"
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src="/power-btn.png" alt="" draggable={false} className="size-full select-none" />
+      {muted && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src="/power-off-overlay.png"
+          alt=""
+          draggable={false}
+          className="absolute inset-0 size-full select-none"
+        />
+      )}
+    </button>
   );
 }
