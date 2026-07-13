@@ -76,9 +76,12 @@ export async function detectCapabilities(
   // state), `delay_main_sub`, and `linein_delay`. Key off `plugged` presence
   // (not its 0/1 value) so the capability tracks the hardware, not the live
   // connection — the settings panel handles hiding it when unwanted.
+  // `plugged` alone was the original check; OR-ing in the other two closes a
+  // theoretical gap where a device reports one of them without `plugged`
+  // (unconfirmed to happen in practice, but costs nothing to guard against).
   const subwoofer =
     !!subJson &&
-    subJson.plugged != null &&
+    (subJson.plugged != null || subJson.delay_main_sub != null || subJson.linein_delay != null) &&
     !subText.toLowerCase().includes("unknown command");
 
   const outJson = safeJson<Record<string, unknown>>(outText);

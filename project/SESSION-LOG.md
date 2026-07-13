@@ -4,6 +4,16 @@ Dated entries, newest first. Purpose: let a fresh session (or a fresh person) pi
 
 ---
 
+## 2026-07-13 — v0.4.0 release + checked upstream sync
+
+**Released 0.4.0.** GitHub Actions turned out to have been disabled on this fork the whole time (default behavior for forks — user manually enabled it via the Actions tab banner), so no CI run or GHCR image had ever actually been published despite the workflows existing since 2026-07-11. Re-tagged after enabling; the release workflow ran successfully (multi-arch build, ~15 min including arm64 under QEMU) — confirmed `ghcr.io/gthibo/wiim-dashboard:0.4.0`/`:latest` both pull, and the GitHub Release body matches CHANGELOG.md. Also fixed `scripts/release.sh`'s own leftover `illiano` git-identity comment and `illianoaoi` echo messages — same "copied from upstream, never repointed" class of bug already hit in README.md/CONTRIBUTING.md.
+
+**Checked the "6 commits behind upstream" GitHub banner.** Fetched upstream and diffed all 4 real fixes (`6865ddd` sub-out false-positive, `3120d58` EQ L/R, `7aec6aa` lyrics timeout/album-mismatch, `59db72f` Plex/DLNA cast detection) against our current code before merging anything. Finding: **we already have equivalent or better fixes for all four**, independently — likely bundled into the `Showa Hi-Fi Counter — visual re-skin (Rounds 1–33)` squash commit alongside visual work, never surfaced as separate documented fixes. Nothing merged or cherry-picked; would have been redundant/conflict-prone. One genuine small gap adopted from upstream's version: `capabilities.ts`'s subwoofer detection now also OR-checks `delay_main_sub`/`linein_delay` alongside `plugged` (upstream's slightly more robust condition — we only had a bug-free but narrower `plugged`-only check).
+
+**Status:** release live, upstream-sync check done, capabilities.ts fix pending commit.
+
+---
+
 ## 2026-07-13 — Multiroom bug fixes + relocate into Device panel (implemented)
 
 **Context:** live-tested multiroom on real hardware (WiiM Pro fw 4.8, WiiM Ultra fw 5.2, wmrm 4.3). Found and fixed three real bugs (see `GOTCHAS.md` for the field-shape details): role/master-IP detection relied on a `multiroom` object `getStatusEx` never sends on this firmware (fixed via top-level `master_ip`/`master_uuid` + a new `multiroom:getSlaveList` call); group mute and group volume's broadcast commands (`setPlayerCmd:slave_mute`/`slave_vol`) are accepted but no-op on this hardware — switched both to the confirmed-working per-slave targeted commands (`multiroom:SlaveMute:<ip>:<0|1>`, `multiroom:SlaveVolume:<ip>:<n>`). All of join/leave/kick/group-mute/group-volume now verified working live. One reported bug (leaving a group once stopped the master's playback) did not reproduce across two independent retests and is not fixed — documented as unreproducible, not silently dropped.
