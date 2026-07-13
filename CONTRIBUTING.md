@@ -5,7 +5,7 @@ Thanks for your interest in improving Wiim Dashboard! This guide covers the dev 
 ## Development setup
 
 ```bash
-git clone https://github.com/illianoaoi/Wiim-Dashboard.git
+git clone https://github.com/gthibo/Wiim-Dashboard.git
 cd Wiim-Dashboard
 npm install
 cp .env.example .env        # set AUTH_SECRET; for http dev, COOKIE_SECURE=false
@@ -75,9 +75,6 @@ To cut a release:
 This bumps `package.json`, creates a `release: vX.Y.Z` commit + `vX.Y.Z` tag (using your repo git
 identity), pushes with tags, and publishes a GitHub release with auto-generated notes. Then rebuild
 and redeploy (`docker compose up -d --build`) so the footer shows the new version.
-
-> Keep the repo's git identity set to your public alias so commits aren't attributed to your real
-> name: `git config user.name "illiano" && git config user.email "illiano@users.noreply.github.com"`.
 
 ## Reporting issues
 

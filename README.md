@@ -2,59 +2,20 @@
 
 # Showa Hi-Fi Counter
 
-**A walnut-cabinet hi-fi visual re-skin of [WiiM Dashboard](https://github.com/illianoaoi/Wiim-Dashboard) by illianoaoi.**
+**A hi-fi-styled fork of [WiiM Dashboard](https://github.com/illianoaoi/Wiim-Dashboard)** — a self-hosted, dark-themed web dashboard to monitor and control your [WiiM](https://www.wiimhome.com/) (LinkPlay) audio devices, re-skinned as a walnut-cabinet piece of hardware and extended with multiroom sync, a wake-alarm timer, and an installable desktop app.
 
-Same functionality, completely different aesthetic — inspired by Rams/Loewy-era hardware and 1960s–80s jazz album graphics. Walnut panels, recessed controls, beveled sliders, physical LED indicators, and a design language that treats the dashboard like a piece of equipment rather than a web app.
+Inspired by Rams/Loewy-era hardware and 1960s–80s jazz album graphics — walnut panels, recessed controls, beveled sliders, physical LED indicators, and a design language that treats the dashboard like a piece of equipment rather than a web app.
 
-> All credit for the underlying architecture, device integration, and feature set goes to [illianoaoi](https://github.com/illianoaoi).
+> Forked from [illianoaoi/Wiim-Dashboard](https://github.com/illianoaoi/Wiim-Dashboard) (MIT) — actively maintained on both sides. Full credit and details in [License & credits](#license--credits).
 
 <img width="1800" height="2808" alt="Wiim-Dashboard-1" src="https://github.com/user-attachments/assets/d6c84139-5740-455b-b49d-6bbc578488a3" />
 <img width="1800" height="3615" alt="Wiim-Dashboard-2" src="https://github.com/user-attachments/assets/05ae1e8a-cb59-41d5-91b4-c1fcba072934" />
 
-
-
-
----
-
-## What's different in this fork
-
-**Design tokens:** walnut `#3B2306` · faceplate `#a09287` · rust `#B3441E` · static `#1C1A17`  
-**Fonts:** Antonio (display) · IBM Plex Sans · IBM Plex Mono
-
-**Re-skinned components:**
-- **Now Playing** — two-layer walnut panel, recessed album art cubby, beveled transport controls and volume slider
-- **Source / Output** — physical keycap button rows with PNG LED indicators, collapsible accordion
-- **Presets** — walnut panel, recessed tile grid, rust active state, engraved groove seam
-- **EQ** — PowerKnob, 10-fader graphic EQ, full parametric EQ with per-channel L/R support and 6 filter types
-- **Sub-out** — SubSlider components for level/crossover, phase row with PNG LEDs
-
-**Bug fix (upstream candidate):** subwoofer capability detection now keys on `plugged` field presence in `getSubLPF` response rather than `level`/`status`, eliminating false positives on non-sub-capable LinkPlay devices. See `_showa/SUBWOOFER_CAPS_ISSUE.md` for full details.
-
-**Desktop-only:** this fork targets fixed desktop sizing. Mobile/tablet responsive layout is out of scope.
-
-**Setup is identical to upstream** — see the original README below.
-
----
-
-# 🎵 Wiim Dashboard
-
-**A self-hosted, dark-themed web dashboard to monitor and control your [WiiM](https://www.wiimhome.com/) (LinkPlay) audio devices.**
-
-Now-playing & transport · EQ · sub-out · source/output switching · presets with artwork · amp temperature — built for phone, tablet and desktop, packaged as a single Docker container, and hardened to sit safely behind your own reverse proxy.
-
-[![CI](https://github.com/illianoaoi/Wiim-Dashboard/actions/workflows/ci.yml/badge.svg)](https://github.com/illianoaoi/Wiim-Dashboard/actions/workflows/ci.yml)
+[![CI](https://github.com/gthibo/Wiim-Dashboard/actions/workflows/ci.yml/badge.svg)](https://github.com/gthibo/Wiim-Dashboard/actions/workflows/ci.yml)
 ![License: MIT](https://img.shields.io/badge/License-MIT-7c5cff.svg)
 ![Next.js](https://img.shields.io/badge/Next.js-15-black.svg)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6.svg)
 ![Docker](https://img.shields.io/badge/Docker-ghcr.io-2496ed.svg)
-
-<br/>
-
-<img src="docs/screenshot.webp" alt="Wiim Dashboard — now playing with the spinning vinyl view, quality readout and presets" width="520" />
-<br/>
-<img src="docs/screenshot-2.webp" alt="Wiim Dashboard — per-source graphic equalizer and Last.fm listening stats" width="520" />
-<br/>
-<img src="docs/screenshot-3.webp" alt="Wiim Dashboard — source, output, sub-out and device info" width="520" />
 
 </div>
 
@@ -65,6 +26,7 @@ Now-playing & transport · EQ · sub-out · source/output switching · presets w
 
 ## Table of contents
 
+- [Design](#design)
 - [Features](#features)
 - [Supported devices](#supported-devices)
 - [How it works](#how-it-works)
@@ -81,8 +43,16 @@ Now-playing & transport · EQ · sub-out · source/output switching · presets w
 - [Project structure](#project-structure)
 - [Troubleshooting](#troubleshooting)
 - [Contributing](#contributing)
-- [Support](#support)
 - [License & credits](#license--credits)
+
+## Design
+
+**Tokens:** walnut `#3B2306` · faceplate `#a09287` · rust `#B3441E` · static `#1C1A17`
+**Fonts:** Antonio (display) · IBM Plex Sans · IBM Plex Mono
+
+Every card — Now Playing, Source/Output, Presets, EQ, Sub-out — is rebuilt around this hi-fi hardware language: recessed panels, beveled transport controls and sliders, physical keycap buttons with LED indicators, and an engraved-groove seam on the Presets grid.
+
+**Desktop-only:** this fork targets fixed desktop sizing. Mobile/tablet responsive layout is out of scope.
 
 ## Features
 
@@ -100,19 +70,22 @@ Now-playing & transport · EQ · sub-out · source/output switching · presets w
 | **Last.fm Love** | ❤ button on the Now Playing card — loves/unloves the track on Last.fm (WiiM has no native favorite command) |
 | **Last.fm stats** | Top artists & tracks (7 days / month / all-time) + total scrobbles, when Last.fm is connected |
 | **Sleep timer** | 🌙 set a 15–120 min timer that pauses the device — runs **server-side**, so it fires even with the dashboard closed |
+| **Wake-alarm** | Set a wake time that starts playback on a chosen source — mirrors the sleep-timer pattern, runs server-side so it fires even with the dashboard closed |
 | **Volume** | Slider **plus −/+ buttons** (touch-friendly on iPad) |
 | **Presets** | Square artwork tiles in a 2×6 grid (count auto-detected per model), tap to play; names + art from `getPresetInfo`; horizontal-scroll on phones |
-| **EQ** | Per-source **Graphic (10-band) + Parametric** EQ, plus enable/disable and named presets |
+| **EQ** | Per-source **Graphic (10-band) + full Parametric** EQ with per-channel L/R support and 6 filter types, plus enable/disable and named presets |
 | **Sub-out** | Level (−15…+15 dB), crossover (30–250 Hz), phase, enable — with −/+ buttons |
+| **Multiroom** | Group / ungroup devices, remove a device from a group, and sync group volume + mute — derived from the existing device poll, no extra device calls. **Needs testing** against real multi-device setups; see [Troubleshooting](#troubleshooting) |
 | **Temperature** | CPU + board °C gauge — **amp models only** |
 | **Device info** | Model, firmware, IP, connection — plus a **Wi-Fi signal** indicator (bars from RSSI, or "Ethernet") and a connected **USB DAC** name |
 | **Source switching** | Auto-detected from the device's `plm_support` bitmask; **auto-imports the input names you set in the WiiM app** and hides inputs you've disabled there; rename per device too |
 | **Output switching** | Optical / line-out / coax (+ headphones on Ultra) |
 | **Multiple devices** | Add by IP or LAN scan; per-device **capability detection** shows only what each model supports |
+| **Installable app** | Desktop-installable PWA (Chrome/Edge) — runs in its own window, no browser chrome |
 | **Auth & security** | Single-admin login (Argon2id), server sessions, optional TOTP 2FA, Cloudflare Turnstile, rate-limiting, CSRF, strict nonce-based CSP |
 | **Deploy** | One Docker image, `docker compose up -d`, data in a named volume |
 
-Every card is **capability-aware** — the Temperature card only appears on amp models, the Sub-out card only when the device answers `getSubLPF`, the Presets card only when the model exposes preset slots, and so on.
+Every card is **capability-aware** — the Temperature card only appears on amp models, the Sub-out card only when the device answers `getSubLPF`, the Presets card only when the model exposes preset slots, the Multiroom card only when 2+ devices are configured, and so on.
 
 ## Supported devices
 
@@ -156,7 +129,7 @@ The Next.js server is the **only** component that talks to the device. The brows
 **Prerequisites:** Docker + Docker Compose, and your WiiM device(s) reachable on the LAN.
 
 ```bash
-git clone https://github.com/illianoaoi/Wiim-Dashboard.git
+git clone https://github.com/gthibo/Wiim-Dashboard.git
 cd Wiim-Dashboard
 
 cp .env.example .env
@@ -179,7 +152,7 @@ docker run -d --name wiim-dashboard -p 39446:3000 \
   -e AUTH_SECRET="$(openssl rand -base64 48)" \
   -e COOKIE_SECURE=false \
   -v wiim-data:/data \
-  ghcr.io/illianoaoi/wiim-dashboard:latest
+  ghcr.io/gthibo/wiim-dashboard:latest
 ```
 
 Pin a version with `:0.3.0` instead of `:latest`. Behind https, drop `COOKIE_SECURE=false` and set `APP_ORIGIN`.
@@ -280,20 +253,21 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for conventions and step-by-step guides (
 src/
 ├── app/                      # Next.js App Router
 │   ├── (pages)               # /, /login, /setup, /settings, /devices
-│   └── api/                  # auth, settings, discover, lastfm/{credentials,connect,session,disconnect,devices,love}, devices/[id]/{control,eq,sub,output,source,preset,art,snapshot,…}
+│   └── api/                  # auth, settings, discover, lastfm/{credentials,connect,session,disconnect,devices,love}, devices/[id]/{control,eq,sub,output,source,preset,art,snapshot,multiroom,…}
 ├── components/
 │   ├── ui/                   # button, card, slider, stepper-slider, switch, input, icon, service-logo…
 │   ├── auth/                 # login/setup forms, Turnstile widget
-│   ├── dashboard/            # now-playing, source, output, eq, sub, temp, preset cards…
+│   ├── dashboard/            # now-playing, source, output, eq, sub, temp, preset, multiroom cards…
 │   ├── devices/              # device manager (add / scan / rename / capabilities)
 │   └── settings/             # account, 2FA, Turnstile, polling, Last.fm
 ├── lib/
-│   ├── wiim/                 # device client (TLS/mTLS/SSRF), commands, parsing, capabilities, discovery, now-playing-info
+│   ├── wiim/                 # device client (TLS/mTLS/SSRF), commands, parsing, capabilities, discovery, multiroom, now-playing-info
+│   ├── alarm/                # server-side wake-alarm timer
 │   ├── lastfm/               # Audioscrobbler 2.0 client (auth, now-playing, scrobble, love)
-│   ├── scrobble/             # server-side background scrobbler (poller)
-│   ├── auth/                 # password, session, csrf, turnstile, totp, rate-limit
-│   ├── db/                   # better-sqlite3 store (users, sessions, devices, settings)
-│   └── client/               # browser fetch helpers + SWR hooks
+│   ├── scrobble/              # server-side background scrobbler (poller)
+│   ├── auth/                  # password, session, csrf, turnstile, totp, rate-limit
+│   ├── db/                    # better-sqlite3 store (users, sessions, devices, settings)
+│   └── client/                # browser fetch helpers + SWR hooks
 ├── instrumentation.ts        # server-boot hook — starts the scrobbler (nodejs runtime)
 └── middleware.ts             # CSP nonce, security headers, page auth gate
 ```
@@ -310,29 +284,20 @@ src/
 | **LAN scan finds nothing** | Set the range to match your subnet (e.g. `192.168.0.0/24`); or add by IP. SSDP needs host networking. |
 | **A card is missing** | That model doesn't expose the feature, or capabilities are stale — hit **Refresh** on the device (Devices page). |
 | **Device shows offline** | Check the IP, that the device is on, and that the container can reach the LAN. |
+| **Multiroom actions fail or behave unexpectedly** | This feature is newly added and flagged `needs testing` against real multi-device setups — please open an issue with your device models/firmware and what happened. |
 
 ## Contributing
 
 PRs welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) first. Run `npm run typecheck && npm run build` before opening a PR.
 
-## Support
-
-If Wiim Dashboard is useful to you, you can support its continued development through [GitHub Sponsors](https://github.com/sponsors/illianoaoi) — completely optional, and genuinely appreciated. ❤️
-
 ## License & credits
 
 MIT — see [LICENSE](LICENSE). You're free to use, modify and redistribute.
+
+This is a fork of [illianoaoi/Wiim-Dashboard](https://github.com/illianoaoi/Wiim-Dashboard), an actively-maintained project — full credit to illianoaoi for the original architecture, device integration, and core feature set, and for continuing to land fixes (including several reported from this fork) as they come in. This fork builds on that foundation with a walnut hi-fi visual re-skin plus multiroom sync, a wake-alarm timer, and an installable desktop app.
 
 WiiM/LinkPlay HTTP API behaviour and the shared client certificate are derived from the official *HTTP API for WiiM Products v1.2* and the open-source [`python-linkplay`](https://github.com/Velleman/python-linkplay) / [`pywiim`](https://github.com/mjcumming/pywiim) projects. Sub-out (`getSubLPF`/`setSubLPF`), extended output/source modes and presets are community-verified and not all in the official PDF.
 
 The vinyl-record illustration (`public/vinyl-record.svg`) is public-domain (CC0) — "Vinyl records" by BenBois via [OpenClipart](https://openclipart.org/detail/7645/vinyl-records-by-benbois).
 
 > **Disclaimer:** This is an unofficial, community project and is not affiliated with or endorsed by WiiM / LinkPlay. Use at your own risk.
-
----
-
-<div align="center">
-
-✨ <strong>Vibe coding by illiano</strong>
-
-</div>

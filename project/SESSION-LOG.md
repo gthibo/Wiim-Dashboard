@@ -4,6 +4,20 @@ Dated entries, newest first. Purpose: let a fresh session (or a fresh person) pi
 
 ---
 
+## 2026-07-13 — README repositioning (implemented)
+
+**Context:** the 2026-07-11 fork-governance premise ("upstream unresponsive 3+ weeks") was found to be wrong when checked against GitHub directly — illianoaoi landed the SSRF fix same-day back on 2026-06-19 (credited user as co-author), and fixed three more user-reported issues on 2026-07-13 (lyrics lookup, subwoofer false-positive, parametric EQ L/R), each with a thank-you comment. Upstream is actively maintained. `SOURCE-OF-TRUTH.md`'s fork-governance section and the corresponding memory were corrected same day. This changes the README's framing from "independent fork because upstream went quiet" to "active fork of an active project."
+
+**Plan (approved by user 2026-07-13, section by section):**
+1. **Opening/identity:** keep "Showa Hi-Fi Counter" and the hi-fi visual hook as the header. Replace "Same functionality... all credit goes to illianoaoi" with framing as a hi-fi-styled fork of the actively-maintained WiiM Dashboard, adding multiroom, wake-alarm, and an installable PWA on top of upstream's core. One-line "forked from illianoaoi/Wiim-Dashboard (MIT)" near the top, not the dominant message.
+2. **Feature list:** merge the fork's short "what's different" bullets and upstream's full feature table into one unified table. Fork's real additions (Multiroom, Wake-alarm timer, Installable PWA) become regular rows, not a separate "extras" section. Drop the subwoofer false-positive bug-fix claim — upstream fixed that themselves (issue #6), no longer this fork's differentiator.
+3. **Install instructions + CONTRIBUTING.md:** fix `git clone` / `docker run` examples to point at `gthibo/Wiim-Dashboard` / `ghcr.io/gthibo/wiim-dashboard` (matches the corrected registry in `SOURCE-OF-TRUTH.md`). Same fix in `CONTRIBUTING.md`'s clone URL; remove the leftover `git config user.name "illiano"` instruction (copy-paste artifact from upstream's CONTRIBUTING.md).
+4. **Credits/License/footer:** License & Credits section credits illianoaoi warmly and specifically (original architecture, device integration, active ongoing maintenance) alongside the MIT license. Drop the "Vibe coding by illiano" footer and the GitHub Sponsors link (currently points only to illianoaoi) — no replacement support link for now since the user doesn't have one set up yet; can add later.
+
+**Status:** implemented. `README.md` restructured into one unified doc (merged feature table, corrected clone URL/GHCR image/CI badge to `gthibo/Wiim-Dashboard`, rewritten opening + License & credits, dropped the Sponsors/footer section, added Multiroom/Wake-alarm/Installable-app rows and a Multiroom troubleshooting entry). `CONTRIBUTING.md` clone URL fixed and the leftover `git config user.name "illiano"` instruction removed. Old unskinned upstream screenshots (embedded from the previously-quoted original README) were dropped as part of the merge — the walnut re-skin screenshots at the top now represent the app's actual current look, and keeping both was inconsistent. Not yet committed — pending user review.
+
+---
+
 ## 2026-07-11 — Ringer setup + first real feature batch
 
 **Environment set up.** Ringer (verified-swarm orchestrator) installed and running from WSL2 Ubuntu (native Windows isn't supported — see `GOTCHAS.md`). Two worker lanes proven: Codex (free ChatGPT tier — thin quota, treat as occasional not default) and OpenCode+OpenRouter (primary lane going forward — cheap, reliable, not tied to any subscription already at capacity).
