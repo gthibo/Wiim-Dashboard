@@ -73,8 +73,13 @@ function applySecurity(res: NextResponse, csp: string): NextResponse {
 }
 
 export const config = {
-  // Run on everything except Next internals and static assets.
+  // Run on everything except Next internals and static assets. sw.js must be
+  // reachable without a session — the auth gate redirecting it to /login (a
+  // 307) makes every browser reject the service worker registration outright
+  // (a redirected script response is invalid), which silently broke the
+  // installable-PWA feature entirely: pwa-register.tsx's registration call
+  // swallows the resulting error (.catch(() => {})).
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|icon.svg|apple-icon.png|manifest.webmanifest|robots.txt).*)",
+    "/((?!_next/static|_next/image|favicon.ico|icon.svg|apple-icon.png|manifest.webmanifest|robots.txt|sw.js).*)",
   ],
 };
