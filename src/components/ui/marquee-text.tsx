@@ -61,7 +61,6 @@ export function MarqueeText({
     if (containerRef.current) ro.observe(containerRef.current);
     return () => ro.disconnect();
     // Re-measure whenever the text itself changes (track change).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [text, gapPx]);
 
   // The keyframe holds at 0 for the first `holdFraction` of the loop, then

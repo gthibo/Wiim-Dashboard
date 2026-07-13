@@ -79,7 +79,6 @@ function CubbyArt({
   lyrics,
   lyricsLoading,
   pos,
-  hasDuration,
   onSeek,
 }: {
   view: "cover" | "vinyl" | "lyrics";
@@ -93,7 +92,6 @@ function CubbyArt({
   lyrics: { synced: LyricLine[] | null; plain: string | null } | null;
   lyricsLoading: boolean;
   pos: number;
-  hasDuration: boolean;
   onSeek: (t: number) => void;
 }) {
   return (
@@ -517,7 +515,6 @@ export function NowPlayingCard({
             lyrics={lyrics}
             lyricsLoading={lyricsLoading}
             pos={pos}
-            hasDuration={hasDuration}
             onSeek={(t) => {
               const v = Math.round(t);
               setPos(v);

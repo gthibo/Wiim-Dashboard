@@ -288,7 +288,7 @@ src/
 
 ## Contributing
 
-PRs welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) first. Run `npm run typecheck && npm run build` before opening a PR.
+PRs welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) first. Run `npm run typecheck && npm run lint && npm run build` before opening a PR.
 
 ## License & credits
 

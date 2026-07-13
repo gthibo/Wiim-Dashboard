@@ -22,9 +22,9 @@ You'll need a real WiiM device on your LAN to exercise the device features. Add 
 | `npm run build` | Production build (standalone) |
 | `npm run start` | Run the production build |
 | `npm run typecheck` | `tsc --noEmit` |
-| `npm run lint` | Next.js ESLint |
+| `npm run lint` | ESLint (`eslint.config.mjs`, flat config) |
 
-**Before opening a PR:** `npm run typecheck && npm run build` must pass.
+**Before opening a PR:** `npm run typecheck && npm run lint && npm run build` must pass.
 
 ## Conventions
 

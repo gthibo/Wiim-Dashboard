@@ -5,7 +5,7 @@ import { parseBody } from "@/lib/validate";
 import { resolveDevice, runDevice } from "@/lib/device-route";
 import { getSourceLabels } from "@/lib/db/settings";
 import { SOURCES } from "@/lib/wiim/constants";
-import { GRAPHIC_BANDS, PEQ_LETTERS, PEQ_LETTERS_ALL, PEQ_RANGE } from "@/lib/wiim/eq-constants";
+import { GRAPHIC_BANDS, PEQ_LETTERS_ALL, PEQ_RANGE } from "@/lib/wiim/eq-constants";
 import {
   eqSupported,
   getSourceState,
