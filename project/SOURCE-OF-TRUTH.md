@@ -8,15 +8,17 @@ Living record of what this fork is, why it exists, and the decisions that got it
 
 Note on lineage: the original functional-scope audit (see Design origin below) referenced [cvdlinden/wiim-httpapi](https://github.com/cvdlinden/wiim-httpapi) as feature/API-documentation reference material. The actual forked codebase — Next.js App Router, matching the intended stack — is illianoaoi/Wiim-Dashboard, a different project. Don't confuse the two when tracing history.
 
-## Fork governance (decided 2026-07-11)
+## Fork governance (decided 2026-07-11, corrected 2026-07-13)
 
-Upstream (illianoaoi/Wiim-Dashboard) has been unresponsive for 3+ weeks — no tickets addressed since the first submission (~2026-06-20), and no response to attempts to discuss merging a submitted SSRF security fix (branch `fix/ssrf-album-art-presets`, still unmerged upstream). Decision: **proceed independently.**
+**Correction (2026-07-13):** the 2026-07-11 decision below was based on a mistaken read of upstream as unresponsive. Checking GitHub directly on 2026-07-13 showed: the SSRF fix (issue #1 / PR `fix/ssrf-album-art-presets`) was actually landed by illianoaoi the same day it was filed, 2026-06-19 — credited as co-author on the commit — it just wasn't merged via GitHub's UI (hand-applied into their own commit instead), which is why it read as "still open/ignored." And on 2026-07-13, illianoaoi fixed three more issues gthibo reported (lyrics lookup #5, subwoofer false-positive #6, parametric EQ L/R #7), each with a direct thank-you comment. **Upstream is actively maintained, not unresponsive.**
 
-- Keep filing upstream PRs for security issues/bugs as courtesy — don't block this fork's releases on their acceptance.
-- Keep an eye on upstream for genuine core-API fixes worth manually pulling in (diverging means no automatic sync).
-- Reposition the README — it currently frames this as "just a re-skin, all credit to original," which undersells real feature divergence. Goal: make this fork discoverable and credible as its own actively-maintained project.
-- Intent: offer this to the broader WiiM user community, not keep it personal-use-only.
-- Base project is MIT-licensed — no obligation to upstream anything to keep shipping independently.
+Revised decision: this is an **active fork of an actively-maintained project**, not an independence move driven by upstream neglect.
+
+- Keep filing upstream PRs for core/bug fixes (SSRF, subwoofer, EQ-type issues) — this channel demonstrably works now; don't duplicate core fixes only in the fork.
+- The fork's real differentiators are the visual re-skin plus genuinely new features upstream hasn't built: multiroom/group-sync, wake-alarm timer, installable PWA shell.
+- Reposition the README — it currently frames this as "just a re-skin, all credit to original," which undersells the real feature divergence (PWA, alarm, multiroom) and doesn't reflect that upstream is a live, responsive project worth crediting warmly and accurately (not as a footnote, not as "abandoned").
+- Intent: offer this to the broader WiiM user community, not keep it personal-use-only — as a hi-fi-styled fork built on an active, well-maintained upstream.
+- Base project is MIT-licensed — no obligation to upstream anything, but no reason to disclaim the relationship either now that it's a healthy one.
 
 ## Publishing / deployment
 
