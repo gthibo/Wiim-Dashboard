@@ -18,9 +18,6 @@ branch=$(git rev-parse --abbrev-ref HEAD)
 [ "$branch" = "main" ] || { echo "❌ Switch to main first (on: $branch)"; exit 1; }
 git diff --quiet && git diff --cached --quiet || { echo "❌ Commit or stash changes first."; exit 1; }
 
-# Commits/tags use the repo-local git identity (keep it set to your alias):
-#   git config user.name "illiano"
-#   git config user.email "illiano@users.noreply.github.com"
 NEW=$(npm version "$BUMP" -m "release: %s")     # bumps package.json, commits, tags vX.Y.Z
 echo "→ bumped to $NEW"
 
@@ -29,5 +26,5 @@ echo "→ bumped to $NEW"
 git push --follow-tags origin main
 
 echo "✅ Pushed $NEW — GitHub Actions will build the image + publish the release."
-echo "   Watch: https://github.com/illianoaoi/Wiim-Dashboard/actions"
-echo "   Pull:  docker pull ghcr.io/illianoaoi/wiim-dashboard:${NEW#v}"
+echo "   Watch: https://github.com/gthibo/Wiim-Dashboard/actions"
+echo "   Pull:  docker pull ghcr.io/gthibo/wiim-dashboard:${NEW#v}"

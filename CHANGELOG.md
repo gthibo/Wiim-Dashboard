@@ -3,6 +3,16 @@
 All notable changes to this project are documented here. The format loosely
 follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.4.0] — 2026-07-13
+
+### Added
+- **Multiroom / group-sync support** — group and ungroup devices, kick a device out of a group, and set group-wide volume/mute. Lives in the Device panel alongside Model/Firmware/IP rather than a separate card. Verified against real WiiM hardware (join/leave/kick/group-volume/group-mute all confirmed working).
+- **Installable desktop app** — the dashboard is now installable as a PWA from Chrome/Edge, running in its own window without browser chrome.
+- **Wake-alarm timer** — set a time for a device to start playing, mirroring the existing sleep timer; runs server-side, so it fires even with the dashboard closed.
+
+### Fixed
+- **This fork's release image path** — the GHCR image and Unraid/Proxmox install paths were still pointing at upstream's registry namespace, copied verbatim when this fork was first cut and never corrected. Now point at this fork's own image (`ghcr.io/gthibo/wiim-dashboard`).
+
 ## [0.3.6] — 2026-06-27
 
 ### Fixed
