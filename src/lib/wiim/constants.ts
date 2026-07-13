@@ -53,6 +53,17 @@ export const Cmd = {
   // Presets (favourites). Count from getStatusEx `preset_key`.
   getPresets: "getPresetInfo",
   playPreset: (n: number) => `MCUKeyShortClick:${Math.trunc(n)}`,
+
+  // Multiroom / group sync.
+  // needs testing — no test hardware, see docs/API-CAPABILITY-RESEARCH.md
+  multiroomSlaveList: "multiroom:getSlaveList", // needs testing
+  multiroomUngroupNew: "multiroom:Ungroup", // needs testing — pywiim, capital U; try first
+  multiroomUngroupLegacy: "multiroom:ungroup", // needs testing — python-linkplay, lowercase; fallback
+  multiroomKick: (ip: string) => `multiroom:SlaveKickout:${ip}`, // needs testing
+  multiroomJoin: (masterIp: string) =>
+    `ConnectMasterAp:JoinGroupMaster:eth${masterIp}:wifi0.0.0.0`, // needs testing
+  slaveVolume: (v: number) => `setPlayerCmd:slave_vol:${clampInt(v, 0, 100)}`, // needs testing — whole-group broadcast volume
+  slaveMute: (on: boolean) => `setPlayerCmd:slave_mute:${on ? "mute" : "unmute"}`, // needs testing — whole-group broadcast mute
 } as const;
 
 /** Playback status values from getPlayerStatusEx `status`. */

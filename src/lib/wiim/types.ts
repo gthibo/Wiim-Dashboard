@@ -76,6 +76,12 @@ export interface DeviceInfo {
   temperatureBoard: number | null;
   /** number of preset slots (preset_key). */
   presetCount: number;
+  /** multiroom role derived from getStatusEx `multiroom` (or coarse `group` fallback). */
+  multiroomRole: "solo" | "master" | "slave";
+  /** master's IP when role === "slave"; null otherwise. */
+  multiroomMasterIp: string | null;
+  /** slave entries when role === "master"; empty otherwise. */
+  multiroomSlaves: { ip: string; uuid: string }[];
 }
 
 export interface SubwooferStatus {

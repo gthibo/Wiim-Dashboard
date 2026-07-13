@@ -16,6 +16,7 @@ import { EqCard } from "./eq-card";
 import { SubCard } from "./sub-card";
 import { TempCard } from "./temp-card";
 import { PresetCard } from "./preset-card";
+import { MultiroomCard } from "./multiroom-card";
 import { LastfmStatsCard } from "./lastfm-stats-card";
 import { Card } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
@@ -216,6 +217,15 @@ export function Dashboard({ initialDevices }: { initialDevices: DeviceListItem[]
                     onChanged={refresh}
                   />
                 )}
+
+                <MultiroomCard
+                  deviceId={did}
+                  devices={devices}
+                  role={snap.info?.multiroomRole ?? "solo"}
+                  masterIp={snap.info?.multiroomMasterIp ?? null}
+                  slaves={snap.info?.multiroomSlaves ?? []}
+                  onChanged={refresh}
+                />
 
                 {/* Full per-source Graphic + Parametric EQ (self-hides if unsupported) */}
                 {vis("eq") && <EqCard deviceId={did} initialSource={eqSource} />}

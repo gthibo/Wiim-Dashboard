@@ -236,6 +236,7 @@ export function parseDeviceInfo(raw: Record<string, unknown>): DeviceInfo {
   const priv = String(raw.priv_prj ?? "");
   const tCpu = raw.temperature_cpu;
   const tBoard = raw.temperature_tmp102;
+  const { role, masterIp, slaves } = parseMultiroom(raw);
   return {
     name: String(raw.DeviceName ?? raw.ssid ?? "WiiM Device"),
     model: friendlyModel(project, priv),
@@ -251,7 +252,57 @@ export function parseDeviceInfo(raw: Record<string, unknown>): DeviceInfo {
     temperatureCpu: tCpu != null && tCpu !== "" ? num(tCpu) : null,
     temperatureBoard: tBoard != null && tBoard !== "" ? num(tBoard) : null,
     presetCount: Math.max(0, Math.trunc(num(raw.preset_key))),
+    multiroomRole: role,
+    multiroomMasterIp: masterIp,
+    multiroomSlaves: slaves,
   };
+}
+
+/**
+ * Derive multiroom role/slaves from getStatusEx.
+ *
+ * Newer firmware embeds a `multiroom` object (documented by pywiim) carrying
+ * `master` (the master's IP), `slaves` (count), and `slave_list` (array of
+ * {ip, uuid}). If it's missing (older firmware / ungrouped), fall back to the
+ * coarse legacy `group` field ("1" → follower) for a best-effort guess.
+ *
+ * Never throws — defaults to solo/empty on any shape mismatch so the snapshot
+ * poll (which other cards depend on) can never break here.
+ */
+function parseMultiroom(raw: Record<string, unknown>): {
+  role: "solo" | "master" | "slave";
+  masterIp: string | null;
+  slaves: { ip: string; uuid: string }[];
+} {
+  const ownIp = pickIp(raw);
+  const mr = raw.multiroom;
+  if (mr && typeof mr === "object") {
+    const m = mr as Record<string, unknown>;
+    const masterRaw = typeof m.master === "string" ? m.master.trim() : "";
+    if (masterRaw && masterRaw !== "0.0.0.0" && masterRaw !== ownIp) {
+      return { role: "slave", masterIp: masterRaw, slaves: [] };
+    }
+    const list = m.slave_list;
+    if (Array.isArray(list)) {
+      const slaves: { ip: string; uuid: string }[] = [];
+      for (const entry of list) {
+        if (!entry || typeof entry !== "object") continue;
+        const e = entry as Record<string, unknown>;
+        const ip = typeof e.ip === "string" ? e.ip.trim() : "";
+        const uuid = typeof e.uuid === "string" ? e.uuid.trim() : "";
+        if (!ip && !uuid) continue; // skip malformed entries
+        slaves.push({ ip: String(ip), uuid: String(uuid) });
+      }
+      if (slaves.length > 0) {
+        return { role: "master", masterIp: null, slaves };
+      }
+    }
+  }
+  // Coarse legacy fallback: group "1" means follower (master IP unknown).
+  if (String(raw.group ?? "0") === "1") {
+    return { role: "slave", masterIp: null, slaves: [] };
+  }
+  return { role: "solo", masterIp: null, slaves: [] };
 }
 
 export function parseSubwoofer(raw: Record<string, unknown>): SubwooferStatus {
