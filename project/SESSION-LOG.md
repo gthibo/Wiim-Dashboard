@@ -4,7 +4,7 @@ Dated entries, newest first. Purpose: let a fresh session (or a fresh person) pi
 
 ---
 
-## 2026-07-13 — Multiroom bug fixes + relocate into Device panel (planned, not yet implemented)
+## 2026-07-13 — Multiroom bug fixes + relocate into Device panel (implemented)
 
 **Context:** live-tested multiroom on real hardware (WiiM Pro fw 4.8, WiiM Ultra fw 5.2, wmrm 4.3). Found and fixed three real bugs (see `GOTCHAS.md` for the field-shape details): role/master-IP detection relied on a `multiroom` object `getStatusEx` never sends on this firmware (fixed via top-level `master_ip`/`master_uuid` + a new `multiroom:getSlaveList` call); group mute and group volume's broadcast commands (`setPlayerCmd:slave_mute`/`slave_vol`) are accepted but no-op on this hardware — switched both to the confirmed-working per-slave targeted commands (`multiroom:SlaveMute:<ip>:<0|1>`, `multiroom:SlaveVolume:<ip>:<n>`). All of join/leave/kick/group-mute/group-volume now verified working live. One reported bug (leaving a group once stopped the master's playback) did not reproduce across two independent retests and is not fixed — documented as unreproducible, not silently dropped.
 
@@ -17,11 +17,21 @@ Dated entries, newest first. Purpose: let a fresh session (or a fresh person) pi
 - `deviceId` and `onChanged` get threaded one level down into `DeviceSection` (both already exist in `SourceOutputPanel`); `role`/`masterIp`/`slaves` read directly off the already-passed `info` prop (`DeviceInfo` already carries all three) — no other new props needed.
 - `multiroom-card.tsx` is left on disk, unreferenced (its standalone usage removed from `dashboard.tsx`) — same convention already used for `device-info-card.tsx`/`source-card.tsx`/`output-card.tsx`; the "absorbed" note goes in `source-output-panel.tsx`'s existing top-of-file comment, not in the orphaned file itself (matching how those three are documented).
 
-**Status:** approved, not yet implemented.
+**Status:** implemented, live-verified against real devices (correct role/master display, Kick, group mute, group volume all confirmed working), and polished per follow-up feedback: Kick/Leave recolored to `--primary` (rust), the mute+volume row given `mt-8` spacing (was inheriting `space-y-3`'s 0.75rem), a "Group Volume" label added below the slider, "Following:" given a colon + spacing, slave rows prefixed "Connected:". Also fixed a real bug found during polish: the volume slider always initialized to a hardcoded 50 (not synced to the actual device), now initialized and kept synced from `multiroom:getSlaveList`'s per-slave `volume`/`mute` fields (with a drag-guard, same pattern as the now-playing card's own volume sync). Committed across three commits (protocol fixes, UI relocation, docs) and pushed to `origin main`.
 
 ---
 
-## 2026-07-13 — README repositioning (implemented)
+## 2026-07-13 — ESLint setup
+
+**Context:** this repo has never had an ESLint config (see `GOTCHAS.md`'s 2026-07-11/12 entries) — `next lint` hit an interactive "how do you want to configure ESLint?" wizard that couldn't run non-interactively, so `npm run lint` was effectively dead. User asked to close this gap after wrapping up multiroom.
+
+**Done:** installed `eslint` + `eslint-config-next@15.5.4`, added `eslint.config.mjs` (flat config, `next/core-web-vitals` + `next/typescript` via `FlatCompat`), excluding `_showa/` (already excluded from TypeScript itself, per `tsconfig.json`) and the auto-generated `next-env.d.ts`. Ran it against the whole real codebase for the first time ever: only 4 warnings, 0 errors — genuinely clean given the codebase's history. Fixed all four: an anonymous default export in `postcss.config.mjs`, an unused `PEQ_LETTERS` import in the EQ route, a truly-dead `hasDuration` prop threaded through `CubbyArt` in `now-playing-card.tsx` (removed from the prop type/destructure/call site, not just the lint warning), and a stale `eslint-disable-next-line react-hooks/exhaustive-deps` comment in `marquee-text.tsx` that no longer suppressed anything.
+
+Also switched `package.json`'s `lint` script from `next lint` (deprecated, removed in Next.js 16 — it printed the deprecation notice itself) to plain `eslint .`, and added `npm run lint` to the documented pre-PR check in both `CONTRIBUTING.md` and `README.md` (was `typecheck && build` only).
+
+**Verified:** `npm run lint` (well, direct `eslint .` — see Windows/npm-shim gotcha in `GOTCHAS.md`) passes with zero warnings; a full Docker build also passes, confirming ESLint running for the first time inside `next build` doesn't break anything.
+
+**Status:** implemented, verified via typecheck + real Docker build. Not yet committed.
 
 **Context:** the 2026-07-11 fork-governance premise ("upstream unresponsive 3+ weeks") was found to be wrong when checked against GitHub directly — illianoaoi landed the SSRF fix same-day back on 2026-06-19 (credited user as co-author), and fixed three more user-reported issues on 2026-07-13 (lyrics lookup, subwoofer false-positive, parametric EQ L/R), each with a thank-you comment. Upstream is actively maintained. `SOURCE-OF-TRUTH.md`'s fork-governance section and the corresponding memory were corrected same day. This changes the README's framing from "independent fork because upstream went quiet" to "active fork of an active project."
 

@@ -29,6 +29,15 @@ Confirmed 2026-07-13 against two real devices (WiiM Pro fw `Linkplay.4.8.814756`
 - **Group mute/volume broadcast commands are accepted but are pure no-ops**: `setPlayerCmd:slave_mute:mute` and `setPlayerCmd:slave_vol:<n>` both return `"OK"` and change nothing — confirmed by direct testing (mute) and by retesting volume with fixed-volume-output explicitly disabled on the target device (ruling out that setting as the explanation). The **per-slave targeted forms work correctly**: `multiroom:SlaveMute:<ip>:<0|1>` and `multiroom:SlaveVolume:<ip>:<n>`, both sent to the master, naming the specific slave IP. Group mute/volume now iterate these per-slave, plus set the master's own local mute/volume directly.
 - **One user-reported bug did not reproduce**: leaving a group was reported once to have stopped the master's own playback. Two independent retests (direct raw commands, and a live UI retest with device-state polling running throughout) both showed the master's playback completely unaffected by a slave leaving. Not fixed — no code changed for this — documented here so it isn't re-investigated from scratch if it recurs. If it does recur, capture `docker logs` timing alongside device-side `getPlayerStatus` polling to catch it live.
 
+## Windows npm/bin shims break when run from this Bash tool
+
+**`npm run <script>` and `node_modules/.bin/<tool>` both fail here for `tsc`, `next`, and `eslint`** — the shim files in `node_modules/.bin/` are POSIX shell scripts (`#!/bin/sh` with a `basedir=$(dirname ...)` line), and this environment's Bash tool runs them in a way that mis-parses that line (`SyntaxError: missing ) after argument list` when invoked via `node`, or `'tsc'/'next' is not recognized` when invoked via `npm run`). **Fix: call the tool's actual JS entry point directly with `node`**, bypassing the shim entirely:
+- `node node_modules/typescript/bin/tsc --noEmit` (not `npm run typecheck`)
+- `node node_modules/next/dist/bin/next build` / `next lint` (not `npm run build`/`npm run lint`)
+- `node node_modules/eslint/bin/eslint.js .` (not `node_modules/.bin/eslint .`)
+
+This is specific to this Windows/Bash-tool combination — a real terminal (or WSL, or Docker) runs these scripts fine. The real build/lint verification for this project is the Docker build anyway (`docker compose build`), which doesn't hit this at all; the direct-`node` workaround above is just for a quick local typecheck/lint pass without a full rebuild.
+
 ## Windows filesystem interop
 
 - Files inside WSL's own filesystem (not `/mnt/c/...`) aren't reachable via a normal Windows path — use the UNC path `\\wsl.localhost\<distro>\...` (e.g. `\\wsl.localhost\Ubuntu\home\mrthi\...`) from Windows-side tools.
