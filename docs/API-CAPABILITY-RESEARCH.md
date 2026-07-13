@@ -164,6 +164,36 @@ forwarding.
 
 ---
 
+## Fixed-volume-output toggle (2026-07-13, unresearched)
+
+`getStatusEx` reports a `volume_control` field (`"0"`/`"1"`, confirmed present
+on both a WiiM Pro and WiiM Ultra, real hardware) — this is almost certainly
+the same setting as the WiiM app's per-device "Fixed Volume" toggle (locks the
+line-out level, ignoring any volume/group-volume command while enabled; a user
+disabled it manually via the WiiM app during multiroom testing so group
+volume could be verified, since it silently no-ops all volume commands like
+line-out gear typically does).
+
+**No setter command found for this yet** — unlike the rest of this document,
+this entry has **no source-library reference** (not in python-linkplay,
+pywiim, the official PDF, or the community OpenAPI notes consulted so far).
+It's plausibly named something like `setPlayerCmd:volumeControl:<0|1>` by
+analogy with other `setPlayerCmd:` toggles, but that's an unverified guess,
+not a confirmed command — **do not send it to real hardware without
+testing**, same rule as everything else in this doc.
+
+**Why it'd be worth adding**: a dashboard toggle for this would let a user
+switch a unit in/out of "line-out to an external amp" mode without opening
+the WiiM app — a natural companion to this app's existing volume/EQ/sub-out
+controls, and directly relevant to multiroom (a slave with fixed-volume
+output can't have its volume set via group volume at all, silently).
+
+**Suggested next step to actually find the command**: capture the WiiM app's
+own network traffic (proxy/mitm) while toggling this setting, since no
+existing open-source reference documents it — the same class of gap as the
+NAS-browsing finding below, but narrower and plausibly a single new command
+once found.
+
 ## Recommendation
 
 Ranking the three areas by (a) evidence solidity and (b) user value:
