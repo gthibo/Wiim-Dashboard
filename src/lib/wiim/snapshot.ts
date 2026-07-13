@@ -142,7 +142,28 @@ export async function getDeviceSnapshot(device: PollableDevice): Promise<DeviceS
     // play/stop by whether `position` advanced since the previous poll. Only
     // for this exact signature (mode 99 + vendor) — every other source keeps
     // its honest device-reported state. See the vendorTransport note above.
-    if (player.vendor && player.sourceMode === "99") {
+    //
+    // Also applies to a confirmed multiroom slave on mode 99, even when
+    // `vendor` comes back empty — confirmed on real hardware that a slave's
+    // own `vendor` field mirrors whatever the master is playing (e.g. reads
+    // "CustomRadio" when following a radio-preset master), but comes back
+    // *empty* when the master is on a Plex cast session specifically.
+    //
+    // KNOWN PARTIAL FIX, NOT COMPLETE: this still depends on the slave's own
+    // `curpos` genuinely advancing, which it does for a CustomRadio or Plex
+    // master (confirmed) but does NOT for a Spotify Connect master — curpos
+    // sits frozen the whole time on the slave in that case, so this same
+    // "Nothing Playing" bug still reproduces there, just via a different
+    // mechanism (no advancing signal at all, not a vendor gap). Root cause
+    // and next step (2026-07-13, decided but not yet implemented): a
+    // confirmed slave's own transport fields aren't reliable in general —
+    // fetch the master's own getPlayerStatus (using `info.multiroomMasterIp`,
+    // already tracked) and mirror its title/artist/state/position directly
+    // instead of inferring anything from the slave's own signals. That should
+    // replace (not just extend) this heuristic for the confirmed-slave case;
+    // this vendor-based branch would remain only for a genuinely standalone
+    // Plex/DLNA cast receiver with no master to query.
+    if ((player.vendor || info?.multiroomRole === "slave") && player.sourceMode === "99") {
       const now = Date.now();
       const prev = vendorTransport.get(device.id);
       const fresh = prev && now - prev.at < VENDOR_TRANSPORT_TTL_MS;
