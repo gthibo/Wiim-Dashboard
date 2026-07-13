@@ -24,15 +24,20 @@ export interface PollableDevice {
 }
 
 /**
- * Poll-delta transport memory for vendor-push sources (Plex/DLNA), keyed by
- * device id. These sessions report a permanently-stale `status:stop` plus a
- * `curpos` that reflects the real track position, so a SINGLE snapshot can't
- * tell play from stop (confirmed against captured payloads: stopping the player
- * left status unchanged and curpos still advanced). We instead compare position
- * across consecutive polls: advanced ⇒ playing, frozen ⇒ stopped. Inherently
- * one poll behind, and can't distinguish stop from pause (both freeze) — both
+ * Poll-delta transport memory for vendor-push sources (Plex/DLNA). These
+ * sessions report a permanently-stale `status:stop` plus a `curpos` that
+ * reflects the real track position, so a SINGLE snapshot can't tell play from
+ * stop (confirmed against captured payloads: stopping the player left status
+ * unchanged and curpos still advanced). We instead compare position across
+ * consecutive polls: advanced ⇒ playing, frozen ⇒ stopped. Inherently one
+ * poll behind, and can't distinguish stop from pause (both freeze) — both
  * acceptable, accepted limitations. Only consulted for the vendor-push case;
  * every honest source keeps the device's own reported state untouched.
+ *
+ * Keyed by the IP actually being read for transport data (`metaIp` below) —
+ * a device's own ip when reading itself, or its master's ip when mirroring a
+ * multiroom master. That means a master and every slave mirroring it share
+ * one entry, so they agree on playing/stopped instead of drifting.
  */
 const vendorTransport = new Map<string, { position: number; at: number; playing: boolean }>();
 const VENDOR_TRANSPORT_TTL_MS = 60_000;
@@ -74,7 +79,7 @@ export async function getDeviceSnapshot(device: PollableDevice): Promise<DeviceS
   }
 
   const info = infoR.status === "fulfilled" ? infoR.value : null;
-  const player = playerR.status === "fulfilled" ? playerR.value : null;
+  let player = playerR.status === "fulfilled" ? playerR.value : null;
 
   // Master role/slave list can only come from multiroom:getSlaveList (see
   // fetchMultiroomSlaves) — getStatusEx never reports it. A non-empty result
@@ -88,20 +93,47 @@ export async function getDeviceSnapshot(device: PollableDevice): Promise<DeviceS
     }
   }
 
+  // Confirmed multiroom slave: its own transport fields aren't trustworthy in
+  // general. getPlayerStatusEx on a slave reports the audio it's relaying,
+  // but `vendor`/title/artist go blank when the master is a Plex cast, and
+  // `curpos` sits completely frozen (no advancing signal at all) when the
+  // master is a Spotify Connect target — confirmed on real hardware for both.
+  // Rather than infer anything from the slave's own fields, fetch the
+  // master's OWN getPlayerStatusEx directly: the master is the one actually
+  // playing, so its fields are honest regardless of source. Mirrored
+  // verbatim except volume/mute, which stay this device's own (genuinely
+  // per-device, not something a master mirrors). `metaIp` tracks which
+  // device the meta/quality lookup and the vendor-push heuristic below
+  // should also read from — the master's ip once mirroring succeeds.
+  let metaIp = device.ip;
+  if (player && info?.multiroomRole === "slave" && info.multiroomMasterIp) {
+    const masterIp = info.multiroomMasterIp;
+    const masterPlayer = await fetchPlayerStatus(masterIp).catch(() => null);
+    // On failure (master transiently unreachable), fall back to the slave's
+    // own — possibly stale/uninformative — status rather than erroring.
+    if (masterPlayer) {
+      player = { ...masterPlayer, volume: player.volume, muted: player.muted };
+      metaIp = masterIp;
+    }
+  }
+
   if (player) {
+    const emptyMeta = {
+      albumArt: null,
+      quality: null,
+      sampleRate: null,
+      bitDepth: null,
+      bitRate: null,
+      title: null,
+      artist: null,
+      album: null,
+    };
     const meta =
-      metaR.status === "fulfilled"
-        ? metaR.value
-        : {
-            albumArt: null,
-            quality: null,
-            sampleRate: null,
-            bitDepth: null,
-            bitRate: null,
-            title: null,
-            artist: null,
-            album: null,
-          };
+      metaIp !== device.ip
+        ? await fetchMetaInfo(metaIp)
+        : metaR.status === "fulfilled"
+          ? metaR.value
+          : emptyMeta;
     player.quality = meta.quality;
     // Sources like Bluetooth leave Title/Artist empty in getPlayerStatusEx but
     // provide them via getMetaInfo (AVRCP) — fall back to those (only when empty,
@@ -123,7 +155,7 @@ export async function getDeviceSnapshot(device: PollableDevice): Promise<DeviceS
     );
     // For Bluetooth, also show which device is casting (getbtstatus a2dp_sink).
     if (player.service?.key === "bluetooth") {
-      const dev = await fetchBtSourceName(device.ip).catch(() => null);
+      const dev = await fetchBtSourceName(metaIp).catch(() => null);
       if (dev) player.service = { ...player.service, detail: dev };
     }
     // Show art when the device provides it, or when we can look one up by
@@ -143,29 +175,16 @@ export async function getDeviceSnapshot(device: PollableDevice): Promise<DeviceS
     // for this exact signature (mode 99 + vendor) — every other source keeps
     // its honest device-reported state. See the vendorTransport note above.
     //
-    // Also applies to a confirmed multiroom slave on mode 99, even when
-    // `vendor` comes back empty — confirmed on real hardware that a slave's
-    // own `vendor` field mirrors whatever the master is playing (e.g. reads
-    // "CustomRadio" when following a radio-preset master), but comes back
-    // *empty* when the master is on a Plex cast session specifically.
-    //
-    // KNOWN PARTIAL FIX, NOT COMPLETE: this still depends on the slave's own
-    // `curpos` genuinely advancing, which it does for a CustomRadio or Plex
-    // master (confirmed) but does NOT for a Spotify Connect master — curpos
-    // sits frozen the whole time on the slave in that case, so this same
-    // "Nothing Playing" bug still reproduces there, just via a different
-    // mechanism (no advancing signal at all, not a vendor gap). Root cause
-    // and next step (2026-07-13, decided but not yet implemented): a
-    // confirmed slave's own transport fields aren't reliable in general —
-    // fetch the master's own getPlayerStatus (using `info.multiroomMasterIp`,
-    // already tracked) and mirror its title/artist/state/position directly
-    // instead of inferring anything from the slave's own signals. That should
-    // replace (not just extend) this heuristic for the confirmed-slave case;
-    // this vendor-based branch would remain only for a genuinely standalone
-    // Plex/DLNA cast receiver with no master to query.
-    if ((player.vendor || info?.multiroomRole === "slave") && player.sourceMode === "99") {
+    // `player` here may already be the mirrored master's own status (see the
+    // master-mirroring block above) — this still applies in that case, e.g.
+    // when a slave's master is itself a Plex cast receiver. It does NOT fire
+    // for a Spotify Connect master, because the master's own status is
+    // honestly "playing" with a real advancing `curpos`, not mode 99 at all —
+    // the whole reason mirroring fixes that case is that it never reaches
+    // this heuristic in the first place.
+    if (player.vendor && player.sourceMode === "99") {
       const now = Date.now();
-      const prev = vendorTransport.get(device.id);
+      const prev = vendorTransport.get(metaIp);
       const fresh = prev && now - prev.at < VENDOR_TRANSPORT_TTL_MS;
       // First sight (or stale memory): trust nothing yet — assume playing so a
       // freshly-cast stream isn't shown frozen for one poll. Thereafter, the
@@ -173,7 +192,7 @@ export async function getDeviceSnapshot(device: PollableDevice): Promise<DeviceS
       // reads as "stopped" for a single poll until it climbs past the stored
       // value — a brief, self-correcting blip.)
       const playing = !fresh ? true : player.position > prev!.position;
-      vendorTransport.set(device.id, { position: player.position, at: now, playing });
+      vendorTransport.set(metaIp, { position: player.position, at: now, playing });
       player.state = playing ? "playing" : "stopped";
     }
   }

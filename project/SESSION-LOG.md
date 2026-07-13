@@ -4,6 +4,20 @@ Dated entries, newest first. Purpose: let a fresh session (or a fresh person) pi
 
 ---
 
+## 2026-07-13 — Multiroom slave "Nothing Playing" bug: master-mirroring fix implemented and live-verified
+
+**Context:** continuation of the same-day investigation below, picked up in a fresh session per the deliberate handoff. The Spotify-sourced-master case (slave's `curpos` frozen, no advancing signal at all) was the one gap the position-delta workaround couldn't cover by construction.
+
+**Fix implemented in `snapshot.ts`:** replaced the slave-role branch of the vendor-push heuristic with direct master-mirroring, exactly as designed in the previous entry. For a confirmed slave (`info.multiroomRole === "slave"` with `info.multiroomMasterIp` set), the poll now fetches the master's own `getPlayerStatusEx` directly and substitutes it for the slave's own player object verbatim — except `volume`/`muted`, which stay the slave's own (genuinely per-device, not something a master mirrors). On master-fetch failure (transient unreachability), falls back to the slave's own status rather than erroring. The meta/quality lookup and the vendor-push heuristic below it were both changed to key off `metaIp` (the master's ip once mirroring succeeds, the device's own ip otherwise) instead of `device.ip`/`device.id`, so a master and every slave mirroring it agree on the same playing/stopped judgement instead of drifting independently. The vendor-push heuristic itself was simplified back to its original condition (`player.vendor && sourceMode === "99"`) — the `|| info?.multiroomRole === "slave"` special-case from the partial fix is no longer needed, since mirroring now supplies the master's own honest state directly for every source, not just the ones with an advancing local signal.
+
+**Verified live** (Docker image rebuilt from source, local container at `127.0.0.1:39446` restarted onto it, tested logged in as the user): with Living Room WiiM Ultra as master playing Spotify Connect and Bedroom WIIM Pro joined as slave, the Bedroom device's Now Playing card correctly showed the master's actual track ("The Runner" — Vetle Nærø), with position visibly advancing across polls (2:46 → 2:58 → 3:18 → 3:25) — the exact case that previously showed "Nothing Playing." Also watched it through a live track change (master and slave both transitioned to "La" — Nils Frahm, master 1:57 → slave 2:50/2:53, in sync) confirming the mirroring re-fetches correctly on every poll rather than caching stale metadata. `tsc --noEmit` and `eslint . --max-warnings=0` both clean.
+
+**Not separately re-verified this session** (unchanged code paths, already covered by the previous entry's live tests): CustomRadio- and Plex-sourced masters. The `metaIp`-keyed vendorTransport map is a mechanical rename of the same logic already proven for those cases, not a behavior change for the non-slave (standalone Plex/DLNA cast) path.
+
+**Status:** implemented, live-verified for the Spotify case that was the whole reason this was deferred to a fresh session. Ready to commit.
+
+---
+
 ## 2026-07-13 — Multiroom slave "Nothing Playing" bug: investigated, partial fix committed, full fix designed but not implemented
 
 **Context:** after the preset-highlight fixes (previous entry), user reported a new symptom while testing multiroom: activate a preset on one device, switch to the other (now a slave in the group), and the Now Playing card says "Nothing Playing" even though audio is genuinely playing in both rooms.
