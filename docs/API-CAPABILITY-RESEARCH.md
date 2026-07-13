@@ -210,12 +210,25 @@ Ranking the three areas by (a) evidence solidity and (b) user value:
    `setPlayerCmd:slave_vol`. Only caveat to test: the `Ungroup` vs `ungroup`
    case discrepancy between the two libraries.
 
-2. **Third-party service integration — low effort, modest value.** Evidence is
-   moderate (only python-linkplay's `PLAY_MODE_SEND_MAP` documents
-   `switchmode:Spotify/Tidal/Qobuz`; pywiim treats them as Connect-only).
-   Value is modest because it's just a one-tap "enter Connect session" button —
-   the transport is already covered. Worth a small follow-up to expose service
-   modes in the source switcher, but not a major feature.
+2. **Third-party service integration — decided against, 2026-07-13 (was "worth
+   a small follow-up," reversed after discussion).** Spotify/TIDAL/Qobuz all
+   use a *Connect* protocol, where the phone/computer app is always the
+   control point and the speaker is a passive target — this is a protocol
+   ceiling, not a scoping choice: no local API (WiiM's official app included)
+   can add playlist/favorites browsing for these, ever. The only buildable
+   piece was a one-tap `switchmode:<Service>` button to prime the device for a
+   Connect handoff, and its actual usefulness is unverified (may do nothing
+   without the service's own app already trying to connect) — not worth
+   building for that little confirmed value, especially since the maintainer
+   already rejects "replicate what the mobile app does" as a goal in general
+   (see `SOURCE-OF-TRUTH.md`'s desktop-only rationale). Left as a
+   maybe-someday item — revisit only if real user feedback asks for it
+   specifically. **Separately unresearched**: WiiM/LinkPlay firmware directly
+   integrates some *other* services (TuneIn, and model-dependent ones like
+   Amazon Music/Deezer/vTuner) rather than via Connect — these might have a
+   real browse API, architecturally unlike Spotify/TIDAL/Qobuz, but this was
+   never investigated (out of this document's original scope) and would need
+   fresh research before any commitment.
 
 3. **Home music shares / NAS — do not pursue as an API feature.** Evidence is
    *negative*: no source exposes an SMB/UPnP-media-server browse command. The

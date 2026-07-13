@@ -20,6 +20,8 @@ Revised decision: this is an **active fork of an actively-maintained project**, 
 - Intent: offer this to the broader WiiM user community, not keep it personal-use-only — as a hi-fi-styled fork built on an active, well-maintained upstream.
 - Base project is MIT-licensed — no obligation to upstream anything, but no reason to disclaim the relationship either now that it's a healthy one.
 
+**Upstream sync check (2026-07-13):** GitHub shows this fork ~6 commits behind `illianoaoi/Wiim-Dashboard:main` (their own 0.3.7 release: sub-out false-positive, EQ L/R, lyrics timeout/album-mismatch, Plex/DLNA cast detection). Diffed all four against our code before merging anything — **we already had equivalent or better fixes for all four**, independently (likely folded into the `Showa Hi-Fi Counter` re-skin squash commit alongside visual work, never surfaced as separate fixes at the time). Nothing merged; one small robustness gap adopted (`capabilities.ts` subwoofer detection broadened to match upstream's OR condition). Deliberately **not** claimed in the public README: a "we're at parity" claim would need re-verifying every time upstream ships something, an overclaim risk in the same class as the pre-correction "unresponsive" framing above. Re-check next time the "behind" count grows meaningfully rather than assuming it still holds.
+
 ## Publishing / deployment
 
 - **GHCR** (primary): `ghcr.io/gthibo/wiim-dashboard` — fixed 2026-07-10 (was incorrectly still pointing at `ghcr.io/illianoaoi/wiim-dashboard`, copied verbatim from upstream and never repointed).
@@ -37,6 +39,7 @@ Full history lives in the user's Open-Brain (topic: "WiiM Dashboard") — this i
 - **Original functional scope** (from auditing wiim-httpapi's feature set): playback transport, presets grid with artwork, 10-band graphic EQ with named presets, source/output selection, sub-out controls, device diagnostics.
 - **Original parking lot (explicitly out of scope in the initial PRD)**: multi-room/group playback, deep alarm configuration. **Both are now being picked up** — alarm shipped 2026-07-10 (`src/lib/alarm/`), multiroom is researched and scoped (`docs/API-CAPABILITY-RESEARCH.md`) as the next feature to build.
 - **Original workflow**: feature spec + initial design language done with Gemini/NotebookLM, iterated with Claude. As of 2026-07, active development runs through Claude Code + Ringer (verified worker swarms) instead.
+- **Desktop-only rationale (surfaced 2026-07-13, reasoning not previously written down):** deliberate, not an oversight or resource constraint. The maintainer doesn't see the value in a stripped-down mobile version of a more full-featured desktop app — mirrors the official WiiM mobile app's own scope rather than trying to out-feature it on a small screen. This directly informed the 2026-07-13 decision not to build Spotify/TIDAL/Qobuz Connect quick-switch buttons (see `docs/API-CAPABILITY-RESEARCH.md`): those buttons would only replicate a slice of what the *native* streaming-service apps already do better, the same "why bother stripping down a full app" reasoning as the mobile-responsive decision. Worth checking against this rationale before proposing any future feature whose main pitch is "matches what the mobile app / other apps already do."
 
 ## Current feature-expansion tracking
 

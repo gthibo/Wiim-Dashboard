@@ -4,6 +4,65 @@ Dated entries, newest first. Purpose: let a fresh session (or a fresh person) pi
 
 ---
 
+## 2026-07-13 — Multiroom slave "Nothing Playing" bug: investigated, partial fix committed, full fix designed but not implemented
+
+**Context:** after the preset-highlight fixes (previous entry), user reported a new symptom while testing multiroom: activate a preset on one device, switch to the other (now a slave in the group), and the Now Playing card says "Nothing Playing" even though audio is genuinely playing in both rooms.
+
+**Root cause, confirmed by direct hardware polling across three source types:** a multiroom slave always reports `mode: 99` with a permanently-stuck `status: "stop"` — never changes, confirmed by pausing the master and re-checking (slave's status was identical paused vs. playing). The app already has a workaround for this exact shape of problem (`vendorTransport` in `snapshot.ts`, built for direct Plex/DLNA casts): compare `curpos` across polls, since `status` is useless — but its trigger condition required a populated `vendor` field, which turned out to be unreliable across sources:
+- **CustomRadio-sourced master:** slave's `vendor` reads `"CustomRadio"` (populated) and `curpos` genuinely advances. Existing mechanism already worked here.
+- **Plex-sourced master:** slave's `vendor` comes back **empty**, so the existing mechanism never triggered at all, even though curpos genuinely advances. **Fixed and verified live** (logged in as the user): widened the trigger to also fire whenever `info.multiroomRole === "slave"` (a hard signal from `group`/`master_ip`, independent of the unreliable vendor field) — see `snapshot.ts`. Confirmed working: Now Playing card shows a playing state (pause icon, advancing progress bar) instead of "Nothing Playing." Title/artist stay blank in this case — the fix only corrects play/stop state, doesn't mirror the master's track metadata.
+- **Spotify-sourced master:** slave's `vendor` is also empty, but **`curpos` is frozen** (confirmed: identical across 5 polls, ~5 seconds, while the master's own position was actively advancing) — a different failure mode the widened condition doesn't cover, since there's no advancing signal to detect at all.
+
+**Decision (not yet implemented):** the position-delta trick is fundamentally a per-source guessing game — three sources tested have already produced two incompatible slave-side signatures. The robust fix is to stop inferring anything from a confirmed slave's own (unreliable) transport fields, and instead fetch the **master's own `getPlayerStatus`/meta directly** (using `info.multiroomMasterIp`, already tracked) and mirror its title/artist/state/position — correct by construction regardless of what the master's source is, with a fallback to the slave's own fields if the master fetch fails (offline, network hiccup). This should **replace**, not extend, the slave-role branch of the current fix; the vendor-based branch should remain only for a genuinely standalone (non-grouped) Plex/DLNA cast receiver, which still has no master to query.
+
+**Why this wasn't implemented today:** deliberate — this session had already covered a very large amount of ground over many hours (README repositioning, multiroom feature fixes, ESLint setup, a full release, upstream-sync audit, two rounds of preset-highlight debugging, and this investigation), and continuing to add a nontrivial new cross-device fetch on top of all that risked the kind of context dilution/attention drift that shows up in very long sessions before it's obvious. Decided to stop here, log the investigation precisely, and let a fresh session implement the master-mirroring fix from this doc rather than from a sprawling transcript.
+
+**Status:** partial fix (CustomRadio/Plex slave case) implemented, verified live, and committed. Spotify (and any other source with frozen slave-side curpos) still shows "Nothing Playing" — known, documented, not yet fixed. Master-mirroring fix designed above, ready to implement in a fresh session. The `KNOWN PARTIAL FIX, NOT COMPLETE` comment right above the affected code in `snapshot.ts` has the same detail inline.
+
+---
+
+## 2026-07-13 — Preset-highlight fix, round 2: found the real root cause
+
+**Context:** the per-device scoping + localStorage persistence fix (previous entry) was live-tested and initially looked broken — some presets never highlighted, or the highlight vanished within moments of being set. User's own hardware description ("RL Grime on Plex... won't highlight at all even though it plays fine") gave a precise repro target.
+
+**Root cause, confirmed by direct hardware polling:** some presets (confirmed: a SoundCloud-sourced one, "RL Grime," preset #8 on the Bedroom WiiM) genuinely report `status: "stop"` for the very first poll immediately after activation, before settling into `"load"` then `"play"` a second or two later — not a real stop, just how that source's stream starts up. Other presets tested (CustomRadio, a Plex-sourced one) went straight `load → play` with no "stop" blip, which is why they'd worked in earlier spot-checks. The clearing effect's "if state is stopped, the remembered preset is stale" rule has no way to tell a real stop from this transient one, so it wiped the highlight (and, after the previous fix, its persisted localStorage entry) within moments of being set — matching exactly the "click once: nothing, click twice: works" and "never highlights" reports.
+
+**Fix:** added an 8-second grace window after activation (`activatedAt` timestamp, stored alongside the rest of the remembered-preset state and persisted to `localStorage` too) during which the "stopped" check is skipped — the source-key-mismatch check is untouched, since that's mode-based and wasn't implicated. Verified live, logged in as the user (temporary credentials shared and used for this session only): the RL Grime preset now highlights and stays highlighted through the transient stop, and survives switching to the other device and back.
+
+**Also fixed in the same session:** the actual live app's footer/version-link (`src/lib/version.ts`) pointed at `illianoaoi/Wiim-Dashboard` — same "copied from upstream, never repointed" bug as the docs, but in shipped app code, causing the version link to 404. Reworded from "Vibe coding by illiano" to "Forked from illiano's WiiM Dashboard," now linking correctly.
+
+**Not yet fixed / no plan to fix:** the underlying "no durable current-preset field" limitation remains — a preset changed from outside this dashboard (WiiM app, another control point) still won't be reflected. That's an accepted, documented limitation, not something today's fixes address.
+
+**Status:** all fixes implemented and live-verified (PWA install, footer/URL, LastFM reorder, preset highlighting both rounds). Not yet committed — several rounds of changes are stacked up pending commit.
+
+---
+
+## 2026-07-13 — PWA install fix, footer/URL fix, LastFM reorder, preset-highlight fix
+
+**PWA install bug (real, affected the published v0.4.0 release):** asked to check on the "installable app" feature from the 2026-07-11 session — it had never been tested against a real deployment. Found `sw.js` returning an HTTP 307 redirect to `/login`: `middleware.ts`'s auth-gate matcher excludes several static paths from requiring a session (`favicon.ico`, `manifest.webmanifest`, etc.) but `sw.js` was missing from that list. A redirected service-worker script fails registration in every browser, and `pwa-register.tsx`'s `.catch(() => {})` swallowed the resulting error silently — so the install feature had likely never worked, for anyone, since it shipped. Fixed (added `sw.js` to the matcher's exclusion list), rebuilt, and verified live via `navigator.serviceWorker.getRegistrations()` on a fresh unauthenticated visit — now `active: true`.
+
+**Footer/URL bug (also live since inception, unrelated to the above):** `src/lib/version.ts`'s `REPO_URL`/`RELEASE_URL` pointed at `illianoaoi/Wiim-Dashboard` — meaning the footer's "v0.4.0" link 404'd (this fork's release tags don't exist on upstream's repo). Same "copied from upstream, never repointed" class of bug hit repeatedly today, this time in live app code. Fixed: `REPO_URL` now points at `gthibo/Wiim-Dashboard`, added a separate `UPSTREAM_URL` constant for illiano's repo specifically. Footer text changed from "Vibe coding by illiano" (misattributes authorship of *this* running instance) to "Forked from illiano's WiiM Dashboard" (fair credit, correct link) + a working version link.
+
+**LastFM stats panel reordered** to sit below the Sub-out/Temperature grid instead of above it (`dashboard.tsx`) — simple JSX reorder, no logic change.
+
+**Preset highlighting bug (two real issues, one fix):** `activePreset`/`activePresetSourceKey` in `dashboard.tsx` were single global state, not scoped per device — switching to a device that happened to share the previous device's `sourceKey` (common: both on "wifi") never triggered the clearing effect, so the wrong device's highlighted preset leaked onto the newly selected one. Separately, a page refresh always lost the highlight entirely (plain React state, no persistence) — accepted as an inherent limitation in the original comment (no durable "current preset" field from the WiiM API), but that memory was already just an optimistic, unverified guess even within a session, so persisting the *same* guess across a refresh doesn't add new risk. Fixed both: the memory is now loaded/cleared per-device (keyed by device id) on every device switch, and persisted to `localStorage` (`wiim:activePreset:<deviceId>`) on activation and cleared from storage too when the existing staleness rule (source changed / playback stopped) fires.
+
+**Verified:** typecheck + lint clean for all four changes; PWA fix confirmed live via browser (service worker `active: true`, footer links confirmed correct via DOM query). LastFM reorder and preset-highlight fix are both behind login — not yet verified live by the user.
+
+**Status:** all four implemented, not yet committed (user asked to hold commits from the earlier quick-switch-exploration docs batch too — this is now on top of that).
+
+## 2026-07-13 — Third-party service quick-switch: explored, decided against
+
+**Context:** considered the "Spotify/TIDAL/Qobuz one-tap quick-switch" feature queued from `docs/API-CAPABILITY-RESEARCH.md`'s original ranking. Before designing, checked how source-switching actually resolves in code: mode codes 31/32/36 (Spotify/TIDAL/Qobuz) already fall inside `NETWORK_PLAY_MODES`, and `parsePlayerStatus` resolves those to the generic `wifi` sourceKey *before* any more specific match — so these three could never actually highlight as the active source without reworking shared mode-resolution logic used by every streaming/DLNA/radio source.
+
+**Decided against building it at all**, for a more fundamental reason than that risk: Spotify/TIDAL/Qobuz all use Connect protocols, where the phone/computer app is always the control point — no local API (including WiiM's own official app) can add real playlist/favorites browsing for these, full stop. The only buildable piece (a `switchmode:<Service>` button) has unverified real-world value. Left as a maybe-someday item in `docs/API-CAPABILITY-RESEARCH.md`, revisit only on real user demand. Also surfaced and wrote down the maintainer's actual desktop-only rationale for the first time (see `SOURCE-OF-TRUTH.md`) — it directly informed this decision.
+
+**Also flagged, unresearched:** TuneIn and other services LinkPlay integrates directly into firmware (not via Connect) might have a genuine browse API — architecturally different from Spotify/TIDAL/Qobuz, but never investigated. Noted in `docs/API-CAPABILITY-RESEARCH.md` as a distinct open question, not bundled with the Connect-services "no."
+
+**Status:** no code changed. Docs updated (`SOURCE-OF-TRUTH.md`, `docs/API-CAPABILITY-RESEARCH.md`), pending commit.
+
+---
+
 ## 2026-07-13 — v0.4.0 release + checked upstream sync
 
 **Released 0.4.0.** GitHub Actions turned out to have been disabled on this fork the whole time (default behavior for forks — user manually enabled it via the Actions tab banner), so no CI run or GHCR image had ever actually been published despite the workflows existing since 2026-07-11. Re-tagged after enabling; the release workflow ran successfully (multi-arch build, ~15 min including arm64 under QEMU) — confirmed `ghcr.io/gthibo/wiim-dashboard:0.4.0`/`:latest` both pull, and the GitHub Release body matches CHANGELOG.md. Also fixed `scripts/release.sh`'s own leftover `illiano` git-identity comment and `illianoaoi` echo messages — same "copied from upstream, never repointed" class of bug already hit in README.md/CONTRIBUTING.md.
