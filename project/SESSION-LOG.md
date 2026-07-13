@@ -4,6 +4,23 @@ Dated entries, newest first. Purpose: let a fresh session (or a fresh person) pi
 
 ---
 
+## 2026-07-13 — Multiroom bug fixes + relocate into Device panel (planned, not yet implemented)
+
+**Context:** live-tested multiroom on real hardware (WiiM Pro fw 4.8, WiiM Ultra fw 5.2, wmrm 4.3). Found and fixed three real bugs (see `GOTCHAS.md` for the field-shape details): role/master-IP detection relied on a `multiroom` object `getStatusEx` never sends on this firmware (fixed via top-level `master_ip`/`master_uuid` + a new `multiroom:getSlaveList` call); group mute and group volume's broadcast commands (`setPlayerCmd:slave_mute`/`slave_vol`) are accepted but no-op on this hardware — switched both to the confirmed-working per-slave targeted commands (`multiroom:SlaveMute:<ip>:<0|1>`, `multiroom:SlaveVolume:<ip>:<n>`). All of join/leave/kick/group-mute/group-volume now verified working live. One reported bug (leaving a group once stopped the master's playback) did not reproduce across two independent retests and is not fixed — documented as unreproducible, not silently dropped.
+
+**Now planned:** relocate all three multiroom states (solo/slave/master) from the standalone `multiroom-card.tsx` into the DEVICE column of `source-output-panel.tsx` (`DeviceSection`), between the Add/Settings/Logout action tiles and the existing Model/Firmware/IP info rows (own leading/trailing divider, same recipe as the existing one). Visibility gate unchanged: only renders when `devices.length >= 2`.
+
+- **Solo:** one line, "Standalone" + compact "Join group…" dropdown (unchanged interaction, restyled to the column's faceplate/glass palette).
+- **Slave:** one line, "Following **Name**" + a small "Leave" button.
+- **Master:** one compact row per slave (name + "Kick"), then one combined row mirroring the now-playing card's transport-row layout (icon-button | slider | numeric value): a new 1.5rem power-graphic mute button (`power-btn.png`/`power-off-overlay.png`, muted = off-look per confirmed mapping) + the shared `Slider` component (`variant="volume"`, same styling as now-playing's volume slider) + numeric readout.
+- No dedicated "Multiroom" header row (kept compact per user request — it's a Device subsection, not a new top-level section like Source/Output).
+- `deviceId` and `onChanged` get threaded one level down into `DeviceSection` (both already exist in `SourceOutputPanel`); `role`/`masterIp`/`slaves` read directly off the already-passed `info` prop (`DeviceInfo` already carries all three) — no other new props needed.
+- `multiroom-card.tsx` is left on disk, unreferenced (its standalone usage removed from `dashboard.tsx`) — same convention already used for `device-info-card.tsx`/`source-card.tsx`/`output-card.tsx`; the "absorbed" note goes in `source-output-panel.tsx`'s existing top-of-file comment, not in the orphaned file itself (matching how those three are documented).
+
+**Status:** approved, not yet implemented.
+
+---
+
 ## 2026-07-13 — README repositioning (implemented)
 
 **Context:** the 2026-07-11 fork-governance premise ("upstream unresponsive 3+ weeks") was found to be wrong when checked against GitHub directly — illianoaoi landed the SSRF fix same-day back on 2026-06-19 (credited user as co-author), and fixed three more user-reported issues on 2026-07-13 (lyrics lookup, subwoofer false-positive, parametric EQ L/R), each with a thank-you comment. Upstream is actively maintained. `SOURCE-OF-TRUTH.md`'s fork-governance section and the corresponding memory were corrected same day. This changes the README's framing from "independent fork because upstream went quiet" to "active fork of an active project."
