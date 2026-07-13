@@ -236,7 +236,7 @@ export function parseDeviceInfo(raw: Record<string, unknown>): DeviceInfo {
   const priv = String(raw.priv_prj ?? "");
   const tCpu = raw.temperature_cpu;
   const tBoard = raw.temperature_tmp102;
-  const { role, masterIp, slaves } = parseMultiroom(raw);
+  const { role, masterIp } = parseMultiroom(raw);
   return {
     name: String(raw.DeviceName ?? raw.ssid ?? "WiiM Device"),
     model: friendlyModel(project, priv),
@@ -254,55 +254,71 @@ export function parseDeviceInfo(raw: Record<string, unknown>): DeviceInfo {
     presetCount: Math.max(0, Math.trunc(num(raw.preset_key))),
     multiroomRole: role,
     multiroomMasterIp: masterIp,
-    multiroomSlaves: slaves,
+    // Master role/slave list can't be derived from getStatusEx on this
+    // firmware — snapshot.ts overrides both from a separate
+    // multiroom:getSlaveList call.
+    multiroomSlaves: [],
   };
 }
 
 /**
- * Derive multiroom role/slaves from getStatusEx.
+ * Derive slave-side multiroom role from getStatusEx.
  *
- * Newer firmware embeds a `multiroom` object (documented by pywiim) carrying
- * `master` (the master's IP), `slaves` (count), and `slave_list` (array of
- * {ip, uuid}). If it's missing (older firmware / ungrouped), fall back to the
- * coarse legacy `group` field ("1" → follower) for a best-effort guess.
+ * Confirmed against real hardware (WiiM Pro fw 4.8, WiiM Ultra fw 5.2,
+ * wmrm 4.3): there is no nested `multiroom` object in getStatusEx on this
+ * firmware — `master_ip`/`master_uuid` are top-level fields instead, present
+ * only when `group` is "1" (follower). getStatusEx never reports slave data
+ * for a master, so "master" role can't be derived here at all — see
+ * `parseMultiroomSlaves` (requires a separate `multiroom:getSlaveList` call,
+ * wired in by snapshot.ts).
  *
- * Never throws — defaults to solo/empty on any shape mismatch so the snapshot
- * poll (which other cards depend on) can never break here.
+ * Never throws — defaults to solo on any shape mismatch so the snapshot poll
+ * (which other cards depend on) can never break here.
  */
 function parseMultiroom(raw: Record<string, unknown>): {
-  role: "solo" | "master" | "slave";
+  role: "solo" | "slave";
   masterIp: string | null;
-  slaves: { ip: string; uuid: string }[];
 } {
   const ownIp = pickIp(raw);
-  const mr = raw.multiroom;
-  if (mr && typeof mr === "object") {
-    const m = mr as Record<string, unknown>;
-    const masterRaw = typeof m.master === "string" ? m.master.trim() : "";
-    if (masterRaw && masterRaw !== "0.0.0.0" && masterRaw !== ownIp) {
-      return { role: "slave", masterIp: masterRaw, slaves: [] };
-    }
-    const list = m.slave_list;
-    if (Array.isArray(list)) {
-      const slaves: { ip: string; uuid: string }[] = [];
-      for (const entry of list) {
-        if (!entry || typeof entry !== "object") continue;
-        const e = entry as Record<string, unknown>;
-        const ip = typeof e.ip === "string" ? e.ip.trim() : "";
-        const uuid = typeof e.uuid === "string" ? e.uuid.trim() : "";
-        if (!ip && !uuid) continue; // skip malformed entries
-        slaves.push({ ip: String(ip), uuid: String(uuid) });
-      }
-      if (slaves.length > 0) {
-        return { role: "master", masterIp: null, slaves };
-      }
-    }
+  if (String(raw.group ?? "0") !== "1") {
+    return { role: "solo", masterIp: null };
   }
-  // Coarse legacy fallback: group "1" means follower (master IP unknown).
-  if (String(raw.group ?? "0") === "1") {
-    return { role: "slave", masterIp: null, slaves: [] };
+  const masterRaw = typeof raw.master_ip === "string" ? raw.master_ip.trim() : "";
+  if (masterRaw && masterRaw !== "0.0.0.0" && masterRaw !== ownIp) {
+    return { role: "slave", masterIp: masterRaw };
   }
-  return { role: "solo", masterIp: null, slaves: [] };
+  return { role: "slave", masterIp: null };
+}
+
+/**
+ * Parse the response of `multiroom:getSlaveList` (sent to a candidate
+ * master). Never throws — returns [] on any shape mismatch, which callers
+ * treat as "not a master."
+ */
+export function parseMultiroomSlaves(raw: Record<string, unknown> | null): {
+  ip: string;
+  uuid: string;
+  volume: number;
+  mute: boolean;
+}[] {
+  if (!raw) return [];
+  const list = raw.slave_list;
+  if (!Array.isArray(list)) return [];
+  const slaves: { ip: string; uuid: string; volume: number; mute: boolean }[] = [];
+  for (const entry of list) {
+    if (!entry || typeof entry !== "object") continue;
+    const e = entry as Record<string, unknown>;
+    const ip = typeof e.ip === "string" ? e.ip.trim() : "";
+    const uuid = typeof e.uuid === "string" ? e.uuid.trim() : "";
+    if (!ip && !uuid) continue; // skip malformed entries
+    slaves.push({
+      ip: String(ip),
+      uuid: String(uuid),
+      volume: num(e.volume, 50),
+      mute: String(e.mute) === "1",
+    });
+  }
+  return slaves;
 }
 
 export function parseSubwoofer(raw: Record<string, unknown>): SubwooferStatus {

@@ -7,6 +7,7 @@ import {
   parseDeviceInfo,
   parseSubwoofer,
   parseOutput,
+  parseMultiroomSlaves,
   computeLoopMode,
   cleanMetaText,
 } from "./parse";
@@ -298,6 +299,25 @@ export async function fetchSubwoofer(ip: string): Promise<SubwooferStatus | null
     return parseSubwoofer(raw);
   } catch {
     return null;
+  }
+}
+
+/**
+ * Query whether this device is a multiroom master, and if so, who its slaves
+ * are. getStatusEx never reports this on real hardware (confirmed against a
+ * WiiM Pro + WiiM Ultra, wmrm 4.3) — `multiroom:getSlaveList` is the only
+ * source. Returns [] for a solo or slave device (and on any request failure),
+ * which callers treat as "not a master."
+ */
+export async function fetchMultiroomSlaves(
+  ip: string,
+): Promise<{ ip: string; uuid: string; volume: number; mute: boolean }[]> {
+  try {
+    const text = await send(ip, Cmd.multiroomSlaveList, 5000);
+    const raw = safeJson<Record<string, unknown>>(text);
+    return parseMultiroomSlaves(raw);
+  } catch {
+    return [];
   }
 }
 

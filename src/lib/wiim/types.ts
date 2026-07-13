@@ -76,12 +76,17 @@ export interface DeviceInfo {
   temperatureBoard: number | null;
   /** number of preset slots (preset_key). */
   presetCount: number;
-  /** multiroom role derived from getStatusEx `multiroom` (or coarse `group` fallback). */
+  /**
+   * Multiroom role. "solo"/"slave" come from getStatusEx (`group` +
+   * top-level `master_ip`); "master" is only set by snapshot.ts after a
+   * separate `multiroom:getSlaveList` call comes back non-empty — this
+   * firmware never reports master/slave-list data via getStatusEx itself.
+   */
   multiroomRole: "solo" | "master" | "slave";
   /** master's IP when role === "slave"; null otherwise. */
   multiroomMasterIp: string | null;
   /** slave entries when role === "master"; empty otherwise. */
-  multiroomSlaves: { ip: string; uuid: string }[];
+  multiroomSlaves: { ip: string; uuid: string; volume: number; mute: boolean }[];
 }
 
 export interface SubwooferStatus {

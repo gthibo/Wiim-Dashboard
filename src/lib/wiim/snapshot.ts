@@ -11,6 +11,7 @@ import {
   fetchModeRename,
   fetchAudioInputEnable,
   fetchUsbDac,
+  fetchMultiroomSlaves,
 } from "./commands";
 import { detectService, inferAudioFormat } from "./now-playing-info";
 import { getSleep } from "@/lib/sleep/timer";
@@ -40,7 +41,7 @@ const VENDOR_TRANSPORT_TTL_MS = 60_000;
 export async function getDeviceSnapshot(device: PollableDevice): Promise<DeviceSnapshot> {
   const caps = device.capabilities;
 
-  const [infoR, playerR, metaR, subR, outR, presetsR, renameR, inputEnR, usbDacR] =
+  const [infoR, playerR, metaR, subR, outR, presetsR, renameR, inputEnR, usbDacR, slavesR] =
     await Promise.allSettled([
       fetchDeviceInfo(device.ip),
       fetchPlayerStatus(device.ip),
@@ -51,6 +52,10 @@ export async function getDeviceSnapshot(device: PollableDevice): Promise<DeviceS
       fetchModeRename(device.ip),
       fetchAudioInputEnable(device.ip),
       fetchUsbDac(device.ip),
+      // Not capability-gated like the calls above: whether this device is a
+      // master can only be learned by asking, so every device is asked on
+      // every poll. Cheap on a LAN; returns [] (not a master) on any failure.
+      fetchMultiroomSlaves(device.ip),
     ]);
 
   // If both core reads failed, the device is offline/unreachable.
@@ -70,6 +75,18 @@ export async function getDeviceSnapshot(device: PollableDevice): Promise<DeviceS
 
   const info = infoR.status === "fulfilled" ? infoR.value : null;
   const player = playerR.status === "fulfilled" ? playerR.value : null;
+
+  // Master role/slave list can only come from multiroom:getSlaveList (see
+  // fetchMultiroomSlaves) — getStatusEx never reports it. A non-empty result
+  // means this device is a master regardless of what parseDeviceInfo guessed.
+  if (info) {
+    const slaves = slavesR.status === "fulfilled" ? slavesR.value : [];
+    if (slaves.length > 0) {
+      info.multiroomRole = "master";
+      info.multiroomMasterIp = null;
+      info.multiroomSlaves = slaves;
+    }
+  }
 
   if (player) {
     const meta =

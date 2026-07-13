@@ -1,6 +1,7 @@
 import "server-only";
 import { wiimRequest, WiimError } from "./client";
 import { Cmd } from "./constants";
+import { fetchMultiroomSlaves } from "./commands";
 
 async function send(ip: string, command: string, timeoutMs?: number): Promise<string> {
   const res = await wiimRequest(ip, command, { timeoutMs });
@@ -62,20 +63,48 @@ export async function kickSlave(masterIp: string, slaveIp: string): Promise<void
 }
 
 /**
- * Set whole-group volume (broadcast to all slaves). Sent TO the master device.
- * Firmware syncs every slave to the given 0-100 value.
+ * Set whole-group volume. Like group mute, the broadcast form
+ * (`setPlayerCmd:slave_vol`) is confirmed accepted-but-no-op on real hardware
+ * (wmrm 4.3) — tested with fixed-volume-output explicitly disabled, so that
+ * setting isn't what's masking it. The per-slave targeted form
+ * (`multiroom:SlaveVolume:<ip>:<n>`, still sent to the master) is confirmed
+ * working, so this sets the master locally and every current slave
+ * individually.
  */
 export async function setGroupVolume(masterIp: string, volume: number): Promise<void> {
-  const command = Cmd.slaveVolume(volume); // needs testing
-  const text = await send(masterIp, command);
-  assertAccepted(text, command);
+  const masterCommand = Cmd.volume(volume);
+  const masterText = await send(masterIp, masterCommand);
+  assertAccepted(masterText, masterCommand);
+
+  const slaves = await fetchMultiroomSlaves(masterIp);
+  await Promise.all(
+    slaves.map(async (s) => {
+      const command = Cmd.multiroomSlaveVolume(s.ip, volume);
+      const text = await send(masterIp, command);
+      assertAccepted(text, command);
+    }),
+  );
 }
 
 /**
- * Set whole-group mute. Sent TO the master device. Broadcasts to all slaves.
+ * Set whole-group mute. The broadcast form (`setPlayerCmd:slave_mute`) is
+ * confirmed accepted-but-no-op on real hardware (wmrm 4.3) — it returns "OK"
+ * but no device's mute state actually changes. The per-slave targeted form
+ * (`multiroom:SlaveMute:<ip>:<0|1>`, still sent to the master) is confirmed
+ * working, so this mutes the master locally and every current slave
+ * individually.
  */
 export async function setGroupMute(masterIp: string, muted: boolean): Promise<void> {
-  const command = Cmd.slaveMute(muted); // needs testing
-  const text = await send(masterIp, command);
-  assertAccepted(text, command);
+  const masterCommand = Cmd.mute(muted);
+  const masterText = await send(masterIp, masterCommand);
+  assertAccepted(masterText, masterCommand);
+
+  const slaves = await fetchMultiroomSlaves(masterIp);
+  await Promise.all(
+    slaves.map(async (s) => {
+      const command = Cmd.multiroomSlaveMute(s.ip, muted);
+      const text = await send(masterIp, command);
+      assertAccepted(text, command);
+    }),
+  );
 }

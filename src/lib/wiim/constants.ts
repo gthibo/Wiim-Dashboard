@@ -62,8 +62,10 @@ export const Cmd = {
   multiroomKick: (ip: string) => `multiroom:SlaveKickout:${ip}`, // needs testing
   multiroomJoin: (masterIp: string) =>
     `ConnectMasterAp:JoinGroupMaster:eth${masterIp}:wifi0.0.0.0`, // needs testing
-  slaveVolume: (v: number) => `setPlayerCmd:slave_vol:${clampInt(v, 0, 100)}`, // needs testing — whole-group broadcast volume
-  slaveMute: (on: boolean) => `setPlayerCmd:slave_mute:${on ? "mute" : "unmute"}`, // needs testing — whole-group broadcast mute
+  slaveVolume: (v: number) => `setPlayerCmd:slave_vol:${clampInt(v, 0, 100)}`, // confirmed no-op on real hardware (wmrm 4.3), even with fixed-volume-output off — accepted, has zero effect; kept only as a documented dead end, not called
+  slaveMute: (on: boolean) => `setPlayerCmd:slave_mute:${on ? "mute" : "unmute"}`, // confirmed no-op on real hardware (wmrm 4.3) — accepted, has zero effect; kept only as a documented dead end, not called
+  multiroomSlaveMute: (ip: string, on: boolean) => `multiroom:SlaveMute:${ip}:${on ? 1 : 0}`, // confirmed working on real hardware — targeted per-slave form, sent to the master
+  multiroomSlaveVolume: (ip: string, v: number) => `multiroom:SlaveVolume:${ip}:${clampInt(v, 0, 100)}`, // needs testing — targeted per-slave form, sent to the master
 } as const;
 
 /** Playback status values from getPlayerStatusEx `status`. */
