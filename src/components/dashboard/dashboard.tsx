@@ -67,10 +67,67 @@ export function Dashboard({ initialDevices }: { initialDevices: DeviceListItem[]
   // "Network" label. Same accepted limitation as before: a preset switched
   // from outside this dashboard (the WiiM app, another control point) won't
   // be reflected here.
-  const [activePreset, setActivePreset] = useState<{ index: number; name: string | null } | null>(
-    null,
-  );
+  //
+  // Persisted per-device (localStorage, keyed by device id) so it survives a
+  // refresh — it was already just an optimistic, unverified guess even within
+  // a session, so persisting the same guess adds no new way to be wrong.
+  // Loaded fresh on every device switch (the effect below), which is also
+  // what fixes a real bug this used to have: this state was a single global
+  // value not scoped per device, so switching to a device that happened to
+  // share the previous device's sourceKey (e.g. both on "wifi") never
+  // triggered the clearing effect, leaking the wrong device's highlighted
+  // preset onto the newly selected one.
+  const [activePreset, setActivePreset] = useState<{
+    index: number;
+    name: string | null;
+    activatedAt: number;
+  } | null>(null);
   const [activePresetSourceKey, setActivePresetSourceKey] = useState<string | null>(null);
+
+  // Some presets (confirmed on a real device: a SoundCloud-sourced one)
+  // genuinely report status "stop" for the very first poll after activation,
+  // before settling into "load" then "play" a second or two later — not a
+  // real stop, just how that source's stream starts up. The clearing effect
+  // below has no way to tell that apart from a real stop, so it wiped the
+  // highlight (and its persisted entry) within moments of being set, for any
+  // preset whose activation sequence happens to pass through a literal
+  // "stop". This grace window ignores the "stopped" check (but not the
+  // source-mismatch check, which isn't affected by this) for a few seconds
+  // right after activation.
+  const PRESET_ACTIVATION_GRACE_MS = 8000;
+
+  function presetStorageKey(deviceId: string) {
+    return `wiim:activePreset:${deviceId}`;
+  }
+
+  // Load (or clear) this device's remembered preset whenever the selected
+  // device changes — always resets first, so nothing carries over from
+  // whatever device was previously selected.
+  useEffect(() => {
+    if (!selectedId) {
+      setActivePreset(null);
+      setActivePresetSourceKey(null);
+      return;
+    }
+    try {
+      const raw = localStorage.getItem(presetStorageKey(selectedId));
+      if (raw) {
+        const parsed = JSON.parse(raw) as {
+          index: number;
+          name: string | null;
+          sourceKey: string | null;
+          activatedAt?: number;
+        };
+        setActivePreset({ index: parsed.index, name: parsed.name, activatedAt: parsed.activatedAt ?? 0 });
+        setActivePresetSourceKey(parsed.sourceKey);
+        return;
+      }
+    } catch {
+      /* ignore malformed storage */
+    }
+    setActivePreset(null);
+    setActivePresetSourceKey(null);
+  }, [selectedId]);
 
   // Reflect the selected device's current track in the browser tab title:
   // "<Track> - <Artist> | Wiim Dashboard", falling back to the app name.
@@ -90,17 +147,26 @@ export function Dashboard({ initialDevices }: { initialDevices: DeviceListItem[]
   // Clear the remembered active preset if the source changes away from
   // whatever it was when the preset was activated, or playback stops —
   // same clearing rule PresetCard used to run locally, now here since the
-  // memory itself lives here.
+  // memory itself lives here. Also drops the persisted entry so a stale
+  // guess isn't reloaded on a later refresh.
   useEffect(() => {
     if (activePreset === null) return;
-    if (titlePlayer?.state === "stopped") {
-      setActivePreset(null);
-      return;
+    const withinActivationGrace =
+      Date.now() - activePreset.activatedAt < PRESET_ACTIVATION_GRACE_MS;
+    const stale =
+      (!withinActivationGrace && titlePlayer?.state === "stopped") ||
+      (titlePlayer?.sourceKey !== undefined && titlePlayer.sourceKey !== activePresetSourceKey);
+    if (!stale) return;
+    setActivePreset(null);
+    setActivePresetSourceKey(null);
+    if (selectedId) {
+      try {
+        localStorage.removeItem(presetStorageKey(selectedId));
+      } catch {
+        /* ignore */
+      }
     }
-    if (titlePlayer?.sourceKey !== undefined && titlePlayer.sourceKey !== activePresetSourceKey) {
-      setActivePreset(null);
-    }
-  }, [titlePlayer?.state, titlePlayer?.sourceKey, activePreset, activePresetSourceKey]);
+  }, [titlePlayer?.state, titlePlayer?.sourceKey, activePreset, activePresetSourceKey, selectedId]);
 
   if (devices.length === 0) {
     return (
@@ -128,8 +194,18 @@ export function Dashboard({ initialDevices }: { initialDevices: DeviceListItem[]
   const vis = (k: keyof CardVisibility) => settings?.cards?.[k] ?? true;
 
   function handlePresetActivated(index: number, name: string | null) {
-    setActivePreset({ index, name });
-    setActivePresetSourceKey(player?.sourceKey ?? null);
+    const sourceKey = player?.sourceKey ?? null;
+    const activatedAt = Date.now();
+    setActivePreset({ index, name, activatedAt });
+    setActivePresetSourceKey(sourceKey);
+    try {
+      localStorage.setItem(
+        presetStorageKey(did),
+        JSON.stringify({ index, name, sourceKey, activatedAt }),
+      );
+    } catch {
+      /* ignore */
+    }
   }
   // Only trust the remembered name when it still corresponds to the current
   // source (belt-and-suspenders alongside the clearing effect above).
@@ -220,8 +296,6 @@ export function Dashboard({ initialDevices }: { initialDevices: DeviceListItem[]
                 {/* Full per-source Graphic + Parametric EQ (self-hides if unsupported) */}
                 {vis("eq") && <EqCard deviceId={did} initialSource={eqSource} />}
 
-                {settings?.lastfm?.connected && <LastfmStatsCard />}
-
                 <div className="grid grid-cols-1 gap-4">
                   {vis("sub") && caps?.subwoofer && snap.sub && (
                     <SubCard deviceId={did} sub={snap.sub} onChanged={refresh} />
@@ -230,6 +304,8 @@ export function Dashboard({ initialDevices }: { initialDevices: DeviceListItem[]
                     <TempCard cpu={snap.info.temperatureCpu} board={snap.info.temperatureBoard} />
                   )}
                 </div>
+
+                {settings?.lastfm?.connected && <LastfmStatsCard />}
               </>
             )}
           </div>
