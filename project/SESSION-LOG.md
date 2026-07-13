@@ -14,7 +14,11 @@ Dated entries, newest first. Purpose: let a fresh session (or a fresh person) pi
 
 **Not separately re-verified this session** (unchanged code paths, already covered by the previous entry's live tests): CustomRadio- and Plex-sourced masters. The `metaIp`-keyed vendorTransport map is a mechanical rename of the same logic already proven for those cases, not a behavior change for the non-slave (standalone Plex/DLNA cast) path.
 
-**Status:** implemented, live-verified for the Spotify case that was the whole reason this was deferred to a fresh session. Ready to commit.
+**Status:** implemented, live-verified for the Spotify case that was the whole reason this was deferred to a fresh session. Committed (`2092e09`) and pushed.
+
+**Follow-up bug found immediately after, same session:** user reported album art missing on the mirrored slave. Root cause: `src/app/api/devices/[id]/art/route.ts` is a separate endpoint hit directly by the `<img>` tag — it never sees `snapshot.ts`'s in-memory mirrored player, and was independently re-deriving art from the slave's own host via its own `fetchMetaInfo` call. Fixed the same way: the route now calls `fetchDeviceInfo` on the requested device, and if it's a confirmed slave, fetches meta/art from `multiroomMasterIp` instead, passing that same host to `wiimFetchRaw`'s SSRF `deviceHost` check (the private-IP art fetch must match whichever host the art URL actually belongs to). Falls back to the device's own host if the device-info lookup fails or it isn't a slave. Live-verified: Bedroom WIIM slave now shows the same cover art as the Living Room Ultra master (FKJ — "Skyline"). `tsc`/`eslint` both clean.
+
+**Also noted:** while testing the device-switcher dropdown, one browser click landed on a preset card instead due to a coordinate/layout mismatch, triggering the app's optimistic preset-highlight UI state on a *slave* device. No actual effect on real playback occurred (Spotify Connect kept playing uninterrupted, the group's "Following: WiiM Ultra" state was unaffected) — WiiM firmware appears to silently ignore/reject source-changing commands sent to a device while it's a multiroom follower. Not investigated further since nothing broke, but worth knowing this is the actual real-world behavior if it comes up again.
 
 ---
 

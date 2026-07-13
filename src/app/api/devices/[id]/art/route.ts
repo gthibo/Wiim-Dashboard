@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { guard } from "@/lib/api";
 import { resolveDevice } from "@/lib/device-route";
-import { fetchMetaInfo } from "@/lib/wiim/commands";
+import { fetchDeviceInfo, fetchMetaInfo } from "@/lib/wiim/commands";
 import { wiimFetchRaw } from "@/lib/wiim/client";
 import { lookupAlbumArt } from "@/lib/artwork/itunes";
 
@@ -29,7 +29,18 @@ export async function GET(req: Request, { params }: Params) {
   if ("res" in r) return r.res;
 
   try {
-    const meta = await fetchMetaInfo(r.device.host);
+    // A confirmed multiroom slave's own getMetaInfo doesn't carry the master's
+    // art (same gap the Now Playing mirroring fix in snapshot.ts addresses for
+    // title/artist/state) — read art from the master's own host instead, same
+    // as the snapshot poll does. Falls back to the slave's own host if the
+    // device-info lookup fails or it isn't actually a slave.
+    let artHost = r.device.host;
+    const info = await fetchDeviceInfo(r.device.host).catch(() => null);
+    if (info?.multiroomRole === "slave" && info.multiroomMasterIp) {
+      artHost = info.multiroomMasterIp;
+    }
+
+    const meta = await fetchMetaInfo(artHost);
     // Use the device's own art if present; otherwise fall back to an external
     // lookup by artist + album — local/NAS files often expose no embedded cover.
     let artSrc = meta.albumArt;
@@ -42,13 +53,14 @@ export async function GET(req: Request, { params }: Params) {
     try {
       url = new URL(artSrc);
     } catch {
-      url = new URL(artSrc, `https://${r.device.host}`);
+      url = new URL(artSrc, `https://${artHost}`);
     }
 
-    // SSRF-guarded: private targets must be the device itself; public targets
-    // are fetched with normal TLS verification; connection pinned to checked IP.
+    // SSRF-guarded: private targets must be the device itself (the master's
+    // host when mirroring); public targets are fetched with normal TLS
+    // verification; connection pinned to checked IP.
     const res = await wiimFetchRaw(url.toString(), {
-      deviceHost: r.device.host,
+      deviceHost: artHost,
       timeoutMs: 7000,
     });
     if (res.status >= 400 || !res.contentType.startsWith("image/")) return fallback();
