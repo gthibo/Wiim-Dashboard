@@ -78,8 +78,10 @@ export const config = {
   // 307) makes every browser reject the service worker registration outright
   // (a redirected script response is invalid), which silently broke the
   // installable-PWA feature entirely: pwa-register.tsx's registration call
-  // swallows the resulting error (.catch(() => {})).
+  // swallows the resulting error (.catch(() => {})). icon-192.png/icon-512.png
+  // need the same exclusion — the manifest's installability check fetches
+  // them unauthenticated too, before any login has happened.
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|icon.svg|apple-icon.png|manifest.webmanifest|robots.txt|sw.js).*)",
+    "/((?!_next/static|_next/image|favicon.ico|icon.svg|icon-192.png|icon-512.png|apple-icon.png|manifest.webmanifest|robots.txt|sw.js).*)",
   ],
 };
