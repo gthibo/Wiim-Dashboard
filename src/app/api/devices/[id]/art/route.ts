@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { guard } from "@/lib/api";
 import { resolveDevice } from "@/lib/device-route";
-import { fetchDeviceInfo, fetchMetaInfo } from "@/lib/wiim/commands";
+import { fetchDeviceInfo, fetchTrackMeta } from "@/lib/wiim/commands";
 import { wiimFetchRaw } from "@/lib/wiim/client";
 import { lookupAlbumArt } from "@/lib/artwork/itunes";
 
@@ -40,7 +40,7 @@ export async function GET(req: Request, { params }: Params) {
       artHost = info.multiroomMasterIp;
     }
 
-    const meta = await fetchMetaInfo(artHost);
+    const meta = await fetchTrackMeta(artHost);
     // Use the device's own art if present; otherwise fall back to an external
     // lookup by artist + album — local/NAS files often expose no embedded cover.
     let artSrc = meta.albumArt;
