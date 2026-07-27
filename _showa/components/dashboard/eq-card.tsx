@@ -168,7 +168,7 @@ export function EqCard({ deviceId, initialSource }: { deviceId: string; initialS
       {/* ── Header: wordmark + tabs (left) | POWER knob (right) ───────────── */}
       <div className="relative z-10 flex items-start justify-between gap-6 pl-6 pr-8 pt-6">
         <div className="flex min-w-0 flex-1 flex-col gap-4">
-          <h3 className="font-display text-lg uppercase tracking-[0.15em] text-[hsl(var(--faceplate)/0.75)]">
+          <h3 className="font-display text-base uppercase tracking-[0.15em] text-[hsl(var(--faceplate)/0.75)]">
             <span className="mr-2 inline-flex items-center">
               <SlidersVertical className="size-4" aria-hidden />
             </span>

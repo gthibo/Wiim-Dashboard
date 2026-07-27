@@ -1,36 +1,82 @@
 # Showa Hi-Fi Counter — Session Handoff
-*Updated end of session: July 27, 2026, through Round 37 (upstream cherry-picks: v0.3.8–v0.3.11).
+*Updated end of session: July 27, 2026, through Round 38 (palette retune + heading consistency).
 Supersedes all prior handoff content.*
 
 ## tl;dr for picking this back up
 
-Round 35 was a real upstream-sync session: the codebase has moved well past
-the old "v0.3.6, no merge needed" state. The fork is now ~30 commits ahead of
-upstream on `main` (its own 0.4.0 with multiroom, wake-alarm, PWA shell, plus
-recent multiroom-slave fixes). Upstream reached v0.3.11. This session
-integrated **only** upstream's GetInfoEx now-playing work (issues #4/#8/#9) by
-cherry-picking `a05ba34` and hand-applying the `7886c83` transport shape,
-leaving the rest of upstream's churn out. The GetInfoEx transport + metadata
-path is live and hardware-verified on standalone and multiroom-slave Plex
-casts. **Still on `main` directly — no sync branch was cut. Backup branch
-`backup-main-pre-getinfoex` at `88f4e7d`.**
+Round 38 closed out all remaining open items from the handoff. The palette
+retune is done (faceplate `#a09287` → `#B19D8B`, rust `#B3441E` → `#C64C1A`),
+and all panel headings now use a uniform `font-display text-base uppercase
+tracking-[0.15em]` (Antonio, 1rem). The fork is current through upstream
+v0.3.11. **No open items remain.**
 
-**What's open:**
-1. ~~Milestone B — per-channel write path.~~ **CLOSED.**
-2. **Milestone C** — Stereo↔L/R mode switch command wired (Option A). Greg
-   confirmed it works; command shape still unverified formally.
-3. ~~**Sub-out panel**~~ **CLOSED (Round 32/33).**
-4. ~~**`caps.subwoofer` false positive**~~ **CLOSED (Round 33).**
-5. **Palette retune** — deferred (`--faceplate` → `#B19D8B`, rust → `#C64C1A`).
-6. **Niche/cubby cascade** on other card proportions.
-7. Open flags from earlier rounds (dropdown-compartment gap, `.control-tile`
-   shadow values, Round 27 accordion pending live review).
-8. ~~**NEXT UPSTREAM INCREMENT (queued, not started):**~~ **CLOSED (Round 37).**
-   Cherry-picked `2848f6b` (loop-mode fix) and `55a766c` (deriveSource) onto
-   `main`. See Round 37 section. Fork is now current through upstream v0.3.11.
-   Upstream has since added v0.3.12 Home Assistant add-on (`3dcb273`) — no
-   overlap with our codebase, safely ignored.
+**What's closed this session:**
+1. ~~Milestone C~~ — EQ L/R mode switch confirmed working by Greg.
+2. ~~Niche/cubby cascade~~ — cubby proportions settled, no cascade needed.
+3. ~~Accordion / source panel flags~~ — confirmed complete by Greg.
+4. ~~Palette retune~~ — 10 CSS custom property swaps in `globals.css`.
+5. ~~Panel heading inconsistency~~ — all panels now use Antonio at 1rem.
 
+**What's open:** Nothing. The handoff is clean.
+
+## Round 38 — Palette retune + panel heading consistency
+
+### Palette retune (`globals.css`, dual-write, SHA256 MATCH: 34175327...)
+
+10 CSS custom property swaps — faceplate family warmer/brighter, rust accent
+slightly more orange-red. All derived values shifted proportionally.
+
+| Token | Old HSL | Old hex | New HSL | New hex |
+|---|---|---|---|---|
+| `--foreground` | `26 12% 58%` | `#a09287` | `29 20% 62%` | `#B19D8B` |
+| `--card-foreground` | `26 12% 58%` | | `29 20% 62%` | |
+| `--faceplate` | `26 12% 58%` | `#a09287` | `29 20% 62%` | `#B19D8B` |
+| `--faceplate-dim` | `26 12% 52%` | | `29 20% 56%` | |
+| `--muted-foreground` | `26 10% 35%` | | `29 10% 39%` | |
+| `--primary` | `15 71% 41%` | `#B3441E` | `17 77% 44%` | `#C64C1A` |
+| `--ring` | `15 71% 41%` | | `17 77% 44%` | |
+| `--rust` | `15 71% 41%` | | `17 77% 44%` | |
+| `--accent` | `18 72% 32%` | `#8D3B17` | `20 78% 35%` | |
+| `--rust-recessed` | `18 72% 32%` | | `20 78% 35%` | |
+
+No hardcoded hex values outside `:root` needed changing — all other references
+use `hsl(var(--...))` tokens and cascade automatically.
+
+### Panel heading unification (dual-write, 5 files)
+
+All panel headings now use:
+`font-display text-base uppercase tracking-[0.15em] text-[hsl(var(--faceplate)/0.75)]`
+(Antonio, 1rem, matching the EQ/Sub pattern from earlier rounds).
+
+**`card.tsx`** (shared `CardHeader` component) — `text-sm font-semibold
+tracking-wide text-muted-foreground` → `font-display text-base uppercase
+tracking-[0.15em] text-[hsl(var(--faceplate)/0.75)]`. Icon span color
+`text-muted-foreground` → `text-[hsl(var(--faceplate)/0.75)]`. Affects
+Presets, Last.FM, Temp, Settings, Devices pages.
+
+**`eq-card.tsx`** — EQUALIZER wordmark `text-lg` → `text-base`.
+
+**`sub-card.tsx`** — SUB-OUT wordmark `text-lg` → `text-base`.
+
+**`source-output-panel.tsx`** — three changes:
+- Accordion trigger: `font-sans text-sm font-semibold tracking-wide` →
+  `font-display text-base tracking-[0.15em]`.
+- Inner `Row` title (`Source`, `Output`): same swap.
+- `DeviceSection` "Device" label: same swap.
+- `_showa/` mirror was behind by the multiroom absorption — synced from
+  `src/` (authoritative) before applying heading edits.
+
+### Files touched
+- `src/app/globals.css` + `_showa/app/globals.css`
+- `src/components/ui/card.tsx` + `_showa/components/ui/card.tsx`
+- `src/components/dashboard/eq-card.tsx` + `_showa/` mirror
+- `src/components/dashboard/sub-card.tsx` + `_showa/` mirror
+- `src/components/dashboard/source-output-panel.tsx` + `_showa/` mirror
+
+All pairs SHA256-verified MATCH after edits. Requires `docker compose up -d
+--build`.
+
+---
 ## Round 37 — Upstream cherry-picks: v0.3.8–v0.3.11
 
 **Data layer only — `src/lib/wiim/` files, no `_showa/` mirror.**

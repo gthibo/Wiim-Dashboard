@@ -125,7 +125,7 @@ export function SubCard({
 
       {/* ── Header: wordmark (left) | POWER knob (right) ── */}
       <div className="relative z-10 flex items-start justify-between gap-6 pl-6 pr-[1.8rem] pt-6">
-        <h3 className="font-display text-lg uppercase tracking-[0.15em] text-[hsl(var(--faceplate)/0.75)]">
+        <h3 className="font-display text-base uppercase tracking-[0.15em] text-[hsl(var(--faceplate)/0.75)]">
           <span className="mr-2 inline-flex items-center">
             <CircleDot className="size-4" aria-hidden />
           </span>

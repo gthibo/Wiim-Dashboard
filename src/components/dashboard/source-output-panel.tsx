@@ -201,7 +201,7 @@ export function SourceOutputPanel({
         aria-expanded={open}
         className="control-tile focus-ring flex w-full items-center justify-between px-6 py-4"
       >
-        <span className="flex items-center gap-3 font-sans text-sm font-semibold uppercase tracking-wide text-[hsl(var(--faceplate)/0.7)]">
+        <span className="flex items-center gap-3 font-display text-base uppercase tracking-[0.15em] text-[hsl(var(--faceplate)/0.75)]">
           <span className="flex items-center gap-2">
             <span style={ICON_SHADOW}>
               <Radio className="size-4" />
@@ -320,7 +320,7 @@ function Row({
         <span className="shrink-0" style={ICON_SHADOW}>
           {icon}
         </span>
-        <span className="font-sans text-sm font-semibold uppercase tracking-wide">{title}</span>
+        <span className="font-display text-base uppercase tracking-[0.15em]">{title}</span>
       </div>
 
       {/* keycap run — fixed-width buttons, left-aligned, wrapping only if a
@@ -419,7 +419,7 @@ function DeviceSection({
         <span className="shrink-0" style={ICON_SHADOW}>
           <SettingsIcon className="size-4" />
         </span>
-        <span className="font-sans text-sm font-semibold uppercase tracking-wide">Device</span>
+        <span className="font-display text-base uppercase tracking-[0.15em]">Device</span>
       </div>
 
       {/* device switcher — a split control: name trigger + chevron. Each

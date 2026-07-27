@@ -920,8 +920,11 @@ corner gradient"):**
 - [x] Title rescaled + all-caps + marquee-on-overflow, matched to Lovart mockup measurements
 - [x] Artist line bold-uppercase, album line font-mono — matched to mockup
 - [x] Engraved seam between metadata block and transport row
-- [ ] Palette retune (`#B19D8B` faceplate / `#C64C1A` rust) — explicitly deferred, don't start unprompted
-- [ ] Niche/cubby seating for album art (still a plain rounded square)
+- [x] Palette retune (`#B19D8B` faceplate / `#C64C1A` rust) — DONE (Round 38).
+      10 CSS custom property swaps in globals.css; all derived values
+      (dim, recessed, muted) shifted proportionally.
+- [x] Niche/cubby cascade — marked closed (Round 38); cubby proportions
+      settled, no outstanding cascade work.
 - [x] Transport row material — real play/pause PNG (`public/play-button.png`) + bare-glyph prev/next/shuffle/repeat (superseded the CSS matte-cylinder plan)
 - [x] Scrubber + volume restyled — `Slider` `seek`/`volume` variants (thin track + dot knob; rust seek / cream volume)
 - [x] Volume −/+ steppers removed (desktop-only) — plain `Slider variant="volume"`

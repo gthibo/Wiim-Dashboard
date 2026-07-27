@@ -27,8 +27,8 @@ export function CardHeader({
   return (
     <div className={cn("flex items-center justify-between gap-3 px-5 pt-5", className)}>
       <div className="flex items-center gap-2.5">
-        {icon && <span className="text-muted-foreground">{icon}</span>}
-        <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+        {icon && <span className="text-[hsl(var(--faceplate)/0.75)]">{icon}</span>}
+        <h3 className="font-display text-base uppercase tracking-[0.15em] text-[hsl(var(--faceplate)/0.75)]">
           {title}
         </h3>
       </div>

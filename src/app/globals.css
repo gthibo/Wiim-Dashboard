@@ -27,32 +27,32 @@
      --foreground was a separate literal token that happened to equal the old
      cream; shifted in lockstep so body/title text tracks --faceplate exactly
      rather than drifting apart. */
-  --foreground: 26 12% 58%; /* Faceplate (taupe, desaturated) #a09287 */
+  --foreground: 29 20% 62%; /* Faceplate (taupe, warmer) #B19D8B */
   --surface: 36 10% 10%; /* Static #1C1A17 */
   --card: 36 10% 10%; /* Static #1C1A17 — recessed panel face */
-  --card-foreground: 26 12% 58%;
+  --card-foreground: 29 20% 62%;
 
   /* muted = dim faceplate text / inert controls in the same value family.
      Proportional shift (same L-delta from the old cream pair, ~23pp) kept
      deliberately per Greg even though it lands fairly dim (~34% L) against
      the near-black panels — matches the new, dimmer overall mood. */
   --muted: 33 30% 18%;
-  --muted-foreground: 26 10% 35%;
+  --muted-foreground: 29 10% 39%;
 
   /* ── Accents ───────────────────────────────────────────────────────────
      primary = lit rust (surface-level accents, active states, play button).
      accent  = recessed rust (shadowed contexts: scrubber fill, icon borders).
      Two deliberate rust values, per the measured mockups.                    */
-  --primary: 15 71% 41%; /* Rust #B3441E */
+  --primary: 17 77% 44%; /* Rust #C64C1A */
   --primary-foreground: 40 31% 87%;
-  --accent: 18 72% 32%; /* Rust Recessed #8D3B17 */
+  --accent: 20 78% 35%; /* Rust Recessed (scaled from new primary) */
   --accent-foreground: 40 31% 87%;
 
   /* ── Lines & inputs ────────────────────────────────────────────────────
      Hairline seams between functional zones; warm, low-contrast.            */
   --border: 36 12% 16%;
   --input: 36 12% 14%;
-  --ring: 15 71% 41%; /* focus ring = lit rust */
+  --ring: 17 77% 44%; /* focus ring = lit rust */
 
   /* ── Status ────────────────────────────────────────────────────────────
      Velvet is reserved for mute/error only (per the locked palette).
@@ -67,10 +67,10 @@
      read these directly via hsl(var(--...)) where a token swap isn't enough. */
   --walnut: 33 82% 13%; /* #3B2306 */
   --walnut-dark: 32 83% 9%; /* #2A1804 */
-  --faceplate: 26 12% 58%; /* #a09287 */
-  --faceplate-dim: 26 12% 52%; /* proportional shade, same L-delta as before */
-  --rust: 15 71% 41%;
-  --rust-recessed: 18 72% 32%;
+  --faceplate: 29 20% 62%; /* #B19D8B */
+  --faceplate-dim: 29 20% 56%; /* proportional shade, same L-delta as before */
+  --rust: 17 77% 44%;
+  --rust-recessed: 20 78% 35%;
   --teal: 178 46% 34%;
   --velvet: 0 54% 31%;
   --static: 36 10% 10%;
