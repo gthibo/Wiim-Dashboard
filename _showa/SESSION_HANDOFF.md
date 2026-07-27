@@ -31,9 +31,11 @@ casts. **Still on `main` directly — no sync branch was cut. Backup branch
    Upstream has since added v0.3.12 Home Assistant add-on (`3dcb273`) — no
    overlap with our codebase, safely ignored.
 
-## Round 37 — Upstream cherry-picks: v0.3.8–v0.3.11 (this session)
+## Round 37 — Upstream cherry-picks: v0.3.8–v0.3.11
 
 **Data layer only — `src/lib/wiim/` files, no `_showa/` mirror.**
+
+Build verified clean: Next.js 15.5.19 compiled with no errors, ready in 576ms.
 
 ### Two commits cherry-picked onto `main`
 
