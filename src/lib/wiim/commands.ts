@@ -133,17 +133,21 @@ export async function fetchMetaInfo(ip: string): Promise<MetaInfo> {
  */
 export interface TrackMeta {
   meta: MetaInfo;
+  /** Transport read from the SAME GetInfoEx call — CurrentTransportState is the
+   *  honest play state for cast/push sources where getPlayerStatusEx sticks on
+   *  "stop"; `playType` (== httpapi mode, with a PlayMedium fallback) is a
+   *  source signal for OEM boxes whose httpapi mode is missing. null when
+   *  GetInfoEx didn't run (BT/physical/non-UPnP). */
   transport: { state: PlaybackState | null; playType: string | null } | null;
 }
 
 export async function fetchTrackMeta(ip: string): Promise<TrackMeta> {
   const g = await fetchGetInfoEx(ip).catch(() => null);
   const transport = g ? { state: g.state, playType: g.playType } : null;
-  // Use GetInfoEx metadata only when it actually carries track info. Bluetooth
-  // (metadata comes via AVRCP, not AVTransport) and physical inputs come back
-  // empty from GetInfoEx while httpapi getMetaInfo still has the data — fall
-  // back there for the metadata, but keep GetInfoEx's transport (its play
-  // state is valid regardless).
+  // Use GetInfoEx METADATA only when it actually carries track info. Bluetooth
+  // (AVRCP, not AVTransport) and physical inputs come back empty from GetInfoEx
+  // while httpapi getMetaInfo still has the data — fall back for the metadata,
+  // but keep GetInfoEx's transport (its play state is valid regardless).
   if (g && (g.title || g.albumArt || g.sampleRate != null)) {
     return {
       meta: {
