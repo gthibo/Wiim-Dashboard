@@ -2,11 +2,11 @@
 
 # Showa Hi-Fi Counter
 
-**A hi-fi-styled fork of [WiiM Dashboard](https://github.com/illianoaoi/Wiim-Dashboard)** — a self-hosted, dark-themed web dashboard to monitor and control your [WiiM](https://www.wiimhome.com/) (LinkPlay) audio devices, re-skinned as a walnut-cabinet piece of hardware and extended with multiroom sync, a wake-alarm timer, and an installable desktop app.
+**A hi-fi-styled fork of [WiiM Dashboard](https://github.com/illianoaoi/Wiim-Dashboard)** — a self-hosted web dashboard to monitor and control your [WiiM](https://www.wiimhome.com/) (LinkPlay) audio devices, re-skinned as a walnut-cabinet piece of hardware and extended with multiroom sync, a wake-alarm, and an installable desktop app.
 
-Inspired by Rams/Loewy-era hardware and 1960s–80s jazz album graphics — walnut panels, recessed controls, beveled sliders, physical LED indicators, and a design language that treats the dashboard like a piece of equipment rather than a web app.
+Inspired by Rams/Loewy-era hardware and 1960s–80s jazz album graphics — walnut panels, recessed album-art cubbies, beveled sliders, physical LED indicators, and a design language that treats the dashboard like a piece of equipment rather than a web app.
 
-> Forked from [illianoaoi/Wiim-Dashboard](https://github.com/illianoaoi/Wiim-Dashboard) (MIT) — actively maintained on both sides. Full credit and details in [License & credits](#license--credits).
+> Forked from [illianoaoi/Wiim-Dashboard](https://github.com/illianoaoi/Wiim-Dashboard) (MIT). This fork runs on its own `0.4.0` release line; it tracks upstream and feeds fixes back. See [License & credits](#license--credits).
 
 <img width="1800" height="2808" alt="Wiim-Dashboard-1" src="https://github.com/user-attachments/assets/d6c84139-5740-455b-b49d-6bbc578488a3" />
 <img width="1800" height="3615" alt="Wiim-Dashboard-2" src="https://github.com/user-attachments/assets/05ae1e8a-cb59-41d5-91b4-c1fcba072934" />
@@ -47,45 +47,46 @@ Inspired by Rams/Loewy-era hardware and 1960s–80s jazz album graphics — waln
 
 ## Design
 
-**Tokens:** walnut `#3B2306` · faceplate `#a09287` · rust `#B3441E` · static `#1C1A17`
+**Tokens:** walnut `#3B2306` · faceplate `#B19D8B` · rust `#C64C1A` · static `#1C1A17`
 **Fonts:** Antonio (display) · IBM Plex Sans · IBM Plex Mono
 
-Every card — Now Playing, Source/Output, Presets, EQ, Sub-out — is rebuilt around this hi-fi hardware language: recessed panels, beveled transport controls and sliders, physical keycap buttons with LED indicators, and an engraved-groove seam on the Presets grid.
+Every card — Now Playing, Source/Output, Presets, EQ, Sub-out — is built around a hi-fi hardware language: recessed panels with two-layer procedural grain texture, beveled transport controls and sliders, physical keycap buttons with PNG LED indicators, album art seated in a recessed walnut cubby with a photo tonearm, and an engraved-groove seam vocabulary used consistently across all panels.
 
-**Desktop-only:** this fork targets fixed desktop sizing. Mobile/tablet responsive layout is out of scope.
+**Not mobile optimized:** the dashboard is designed for desktop browsers. The layout targets fixed desktop sizing and is not currently optimized for mobile or tablet viewports, though that may be revisited in a future pass.
 
 ## Features
 
 | Area | What you get |
 |---|---|
-| **Now playing** | Title / artist / album (hex-decoded), album art (proxied), live progress, seek, play/pause, prev/next, shuffle & repeat; current track shown in the browser tab title |
-| **Album-art theming** | The card tints to the cover's dominant colour with a matching glow, crossfading per track (monochrome covers stay neutral) |
-| **Vinyl view** | Toggle the cover for a spinning vinyl record — the cover becomes the centre label, the platter eases up to speed and slows to a stop like a real turntable, and Phono inputs default to it |
-| **Kiosk / wall mode** | A chrome-free fullscreen now-playing view around the spinning vinyl — for wall-mounted tablets and vinyl-wall displays |
+| **Now playing** | Title / artist / album (hex-decoded), album art in a recessed walnut cubby, live progress, seek, play/pause, prev/next, shuffle & repeat; current track shown in the browser tab title |
+| **Now-playing metadata** | UPnP `GetInfoEx` is the primary metadata source — fuller and more reliable than httpapi for DLNA/cast sources — with httpapi fallback for Bluetooth and physical inputs |
+| **Vinyl view** | Toggle the cover for a spinning vinyl record — the cover art becomes the centre label, the platter eases up to speed and slows to a stop like a real turntable, with a static photo tonearm resting on the record |
+| **Kiosk / wall mode** | A chrome-free fullscreen now-playing view, for wall-mounted displays and always-on setups |
 | **Synced lyrics** | A lyrics view that auto-scrolls to the current line (tap a line to seek), via [LRCLIB](https://lrclib.net/) — free, no key |
 | **Source-aware art** | Physical inputs (Optical, Line-in, …) show the source icon instead of stale cover art |
 | **Quality readout** | Bit rate · bit depth · sample rate, e.g. `1411 kbps · 16-bit · 44.1 kHz`, shown as a clean segmented chip |
-| **Stream info** | Detected streaming service + logo (Spotify / TIDAL / Qobuz Connect, AirPlay, DLNA, Bluetooth, in-app services) · inferred codec · graded tier — gold **Hi-Res Lossless**, silver **Lossless**, grey **Lossy** |
+| **Stream info** | Detected streaming service + logo (Spotify / TIDAL / Qobuz Connect, AirPlay, DLNA, Bluetooth, Plex, in-app services) · inferred codec · graded tier — gold **Hi-Res Lossless**, silver **Lossless**, grey **Lossy** |
 | **Last.fm scrobbling** | Server-side background scrobbler that runs **even with the dashboard closed**; per-device toggle; scrobbles every source (incl. vinyl/optical/USB) |
 | **Last.fm Love** | ❤ button on the Now Playing card — loves/unloves the track on Last.fm (WiiM has no native favorite command) |
 | **Last.fm stats** | Top artists & tracks (7 days / month / all-time) + total scrobbles, when Last.fm is connected |
-| **Sleep timer** | 🌙 set a 15–120 min timer that pauses the device — runs **server-side**, so it fires even with the dashboard closed |
-| **Wake-alarm** | Set a wake time that starts playback on a chosen source — mirrors the sleep-timer pattern, runs server-side so it fires even with the dashboard closed |
-| **Volume** | Slider **plus −/+ buttons** (touch-friendly on iPad) |
-| **Presets** | Square artwork tiles in a 2×6 grid (count auto-detected per model), tap to play; names + art from `getPresetInfo`; horizontal-scroll on phones |
-| **EQ** | Per-source **Graphic (10-band) + full Parametric** EQ with per-channel L/R support and 6 filter types, plus enable/disable and named presets |
-| **Sub-out** | Level (−15…+15 dB), crossover (30–250 Hz), phase, enable — with −/+ buttons |
-| **Multiroom** | Group / ungroup devices, remove a device from a group, and sync group volume + mute — derived from the existing device poll, no extra device calls. **Needs testing** against real multi-device setups; see [Troubleshooting](#troubleshooting) |
+| **Sleep timer** | 🌙 Set a 15–120 min timer that pauses the device — runs **server-side**, so it fires even with the dashboard closed |
+| **Wake-alarm** | Set a wake time that starts playback on a chosen source — mirrors the sleep-timer pattern, runs server-side so it fires with the dashboard closed |
+| **Volume** | Slider **plus −/+ step buttons** |
+| **Presets** | Six-up recessed walnut cubby grid (slot count auto-detected per model), tap to play; warm-monotone inactive tiles, full-colour active tile with rust lacquer frame; names + art fetched from `getPresetInfo` |
+| **EQ** | Per-source **Graphic (10-band) + full Parametric** EQ with per-channel L/R support and 6 filter types (Off / Low Shelf / Peak / High Shelf / LP / HP), plus enable/disable and named presets |
+| **Sub-out** | Level (−15…+15 dB), crossover (30–250 Hz), phase, enable — with −/+ step buttons |
+| **Multiroom** | Group / ungroup devices, remove a device from a group, sync group volume + mute — controls live in the Device panel alongside the source switcher |
+| **Source/Output/Device panel** | Source selection, output routing, and device controls (device switcher, Add Device / Settings / Logout, model info) in one collapsible panel |
 | **Temperature** | CPU + board °C gauge — **amp models only** |
 | **Device info** | Model, firmware, IP, connection — plus a **Wi-Fi signal** indicator (bars from RSSI, or "Ethernet") and a connected **USB DAC** name |
-| **Source switching** | Auto-detected from the device's `plm_support` bitmask; **auto-imports the input names you set in the WiiM app** and hides inputs you've disabled there; rename per device too |
+| **Source switching** | Auto-detected from the device's `plm_support` bitmask; **auto-imports the input names you set in the WiiM app** and hides inputs you've disabled there; rename per device |
 | **Output switching** | Optical / line-out / coax (+ headphones on Ultra) |
 | **Multiple devices** | Add by IP or LAN scan; per-device **capability detection** shows only what each model supports |
 | **Installable app** | Desktop-installable PWA (Chrome/Edge) — runs in its own window, no browser chrome |
 | **Auth & security** | Single-admin login (Argon2id), server sessions, optional TOTP 2FA, Cloudflare Turnstile, rate-limiting, CSRF, strict nonce-based CSP |
 | **Deploy** | One Docker image, `docker compose up -d`, data in a named volume |
 
-Every card is **capability-aware** — the Temperature card only appears on amp models, the Sub-out card only when the device answers `getSubLPF`, the Presets card only when the model exposes preset slots, the Multiroom card only when 2+ devices are configured, and so on.
+Every card is **capability-aware** — the Temperature card only appears on amp models, the Sub-out card only when the device answers `getSubLPF` with sub hardware present, the Presets card only when the model exposes preset slots, the Multiroom card only when 2+ devices are configured, and so on.
 
 ## Supported devices
 
@@ -155,7 +156,7 @@ docker run -d --name wiim-dashboard -p 39446:3000 \
   ghcr.io/gthibo/wiim-dashboard:latest
 ```
 
-Pin a version with `:0.3.0` instead of `:latest`. Behind https, drop `COOKIE_SECURE=false` and set `APP_ORIGIN`.
+Pin a version with `:0.4.0` instead of `:latest`. Behind https, drop `COOKIE_SECURE=false` and set `APP_ORIGIN`.
 
 ## First run
 
@@ -253,22 +254,25 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for conventions and step-by-step guides (
 src/
 ├── app/                      # Next.js App Router
 │   ├── (pages)               # /, /login, /setup, /settings, /devices
-│   └── api/                  # auth, settings, discover, lastfm/{credentials,connect,session,disconnect,devices,love}, devices/[id]/{control,eq,sub,output,source,preset,art,snapshot,multiroom,…}
+│   └── api/                  # auth, settings, discover, lastfm/{credentials,connect,session,disconnect,devices,love,stats}, devices/[id]/{control,eq,sub,output,source,preset,preset-art,art,snapshot,alarm,sleep,multiroom,refresh,…}
 ├── components/
-│   ├── ui/                   # button, card, slider, stepper-slider, switch, input, icon, service-logo…
+│   ├── ui/                   # button, card, slider, stepper-slider, switch, input, icon, service-logo, marquee-text…
 │   ├── auth/                 # login/setup forms, Turnstile widget
-│   ├── dashboard/            # now-playing, source, output, eq, sub, temp, preset, multiroom cards…
+│   ├── dashboard/            # now-playing, source-output-panel, eq, sub, temp, preset, multiroom, kiosk, lyrics, vinyl-disc cards…
 │   ├── devices/              # device manager (add / scan / rename / capabilities)
 │   └── settings/             # account, 2FA, Turnstile, polling, Last.fm
 ├── lib/
-│   ├── wiim/                 # device client (TLS/mTLS/SSRF), commands, parsing, capabilities, discovery, multiroom, now-playing-info
+│   ├── wiim/                 # device client (TLS/mTLS/SSRF), commands, UPnP GetInfoEx, parsing, capabilities, discovery, multiroom, now-playing-info
 │   ├── alarm/                # server-side wake-alarm timer
-│   ├── lastfm/               # Audioscrobbler 2.0 client (auth, now-playing, scrobble, love)
-│   ├── scrobble/              # server-side background scrobbler (poller)
-│   ├── auth/                  # password, session, csrf, turnstile, totp, rate-limit
-│   ├── db/                    # better-sqlite3 store (users, sessions, devices, settings)
-│   └── client/                # browser fetch helpers + SWR hooks
-├── instrumentation.ts        # server-boot hook — starts the scrobbler (nodejs runtime)
+│   ├── sleep/                # server-side sleep timer
+│   ├── lastfm/               # Audioscrobbler 2.0 client (auth, now-playing, scrobble, love, stats)
+│   ├── scrobble/             # server-side background scrobbler (poller)
+│   ├── lyrics/               # LRCLIB synced-lyrics client
+│   ├── artwork/              # iTunes cover-art fallback
+│   ├── auth/                 # password, session, csrf, turnstile, totp, rate-limit
+│   ├── db/                   # better-sqlite3 store (users, sessions, devices, settings)
+│   └── client/               # browser fetch helpers + SWR hooks
+├── instrumentation.ts        # server-boot hook — starts the scrobbler + alarm poller (nodejs runtime)
 └── middleware.ts             # CSP nonce, security headers, page auth gate
 ```
 
@@ -284,7 +288,8 @@ src/
 | **LAN scan finds nothing** | Set the range to match your subnet (e.g. `192.168.0.0/24`); or add by IP. SSDP needs host networking. |
 | **A card is missing** | That model doesn't expose the feature, or capabilities are stale — hit **Refresh** on the device (Devices page). |
 | **Device shows offline** | Check the IP, that the device is on, and that the container can reach the LAN. |
-| **Multiroom actions fail or behave unexpectedly** | This feature is newly added and flagged `needs testing` against real multi-device setups — please open an issue with your device models/firmware and what happened. |
+| **Preset art shows wrong image after editing presets in the WiiM app** | The server-side art cache keys on the resolved image URL, so a cache entry for the old image clears within an hour. Hard-reload the dashboard (Ctrl+Shift+R) to drop the browser's copy immediately. |
+| **Dashboard unreachable after container restart** | If running under WSL2, port forwarding to Windows can lag 30–60 seconds after container start — wait and retry before diagnosing further. |
 
 ## Contributing
 
@@ -294,7 +299,7 @@ PRs welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) first. Run `npm run 
 
 MIT — see [LICENSE](LICENSE). You're free to use, modify and redistribute.
 
-This is a fork of [illianoaoi/Wiim-Dashboard](https://github.com/illianoaoi/Wiim-Dashboard), an actively-maintained project — full credit to illianoaoi for the original architecture, device integration, and core feature set, and for continuing to land fixes (including several reported from this fork) as they come in. This fork builds on that foundation with a walnut hi-fi visual re-skin plus multiroom sync, a wake-alarm timer, and an installable desktop app.
+**Relationship to upstream.** This is an actively-maintained fork of [illianoaoi/Wiim-Dashboard](https://github.com/illianoaoi/Wiim-Dashboard), and the two projects track each other. Fixes first developed here — Plex/DLNA cast detection, LRCLIB lyrics recovery, the sub-out capability false-positive, and parametric-EQ L/R reading — were reported upstream and shipped there; upstream improvements — most recently the UPnP `GetInfoEx` now-playing rework — are pulled back here. This fork now runs on its own `0.4.0` release line (`ghcr.io/gthibo/wiim-dashboard`) with features not in upstream: multiroom group/sync control, a server-side wake-alarm, and an installable desktop PWA. Upstream continues active development on its own track. Full credit to illianoaoi for the original architecture, device integration, and core feature set.
 
 WiiM/LinkPlay HTTP API behaviour and the shared client certificate are derived from the official *HTTP API for WiiM Products v1.2* and the open-source [`python-linkplay`](https://github.com/Velleman/python-linkplay) / [`pywiim`](https://github.com/mjcumming/pywiim) projects. Sub-out (`getSubLPF`/`setSubLPF`), extended output/source modes and presets are community-verified and not all in the official PDF.
 

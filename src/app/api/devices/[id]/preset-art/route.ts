@@ -24,8 +24,11 @@ const artCache = new Map<string, { at: number; body: Buffer; contentType: string
 const ART_TTL_MS = 60 * 60 * 1000;
 
 function serveImage(body: Buffer, contentType: string): Response {
+  // Short browser cache: the bytes are already cached server-side (keyed on the
+  // resolved art URL), so the browser doesn't need a long TTL — and a long one
+  // would let a stale image outlive a preset re-point made from the WiiM app.
   return new Response(new Uint8Array(body), {
-    headers: { "content-type": contentType, "cache-control": "private, max-age=3600" },
+    headers: { "content-type": contentType, "cache-control": "private, max-age=60" },
   });
 }
 
@@ -42,13 +45,24 @@ export async function GET(req: Request, { params }: Params) {
     return apiError(400, "Bad preset index", "BAD_INDEX");
   }
 
-  const cacheKey = `${r.device.id}:${index}`;
+  // Resolve the slot's current art URL FIRST (cheap — behind getPresetList's
+  // 30s cache) and key the byte cache on that URL, not on the slot index. When
+  // a preset is re-pointed from the WiiM app the URL changes, so the key
+  // changes and the stale bytes are simply never requested again — the old
+  // index-keyed cache kept serving the previous image for up to an hour.
+  let url: string | null;
+  try {
+    url = await fetchPresetArtUrl(r.device.host, index);
+  } catch {
+    return fallback();
+  }
+  if (!url) return fallback();
+
+  const cacheKey = `${r.device.id}:${url}`;
   const hit = artCache.get(cacheKey);
   if (hit && Date.now() - hit.at < ART_TTL_MS) return serveImage(hit.body, hit.contentType);
 
   try {
-    const url = await fetchPresetArtUrl(r.device.host, index);
-    if (!url) return fallback();
     const res = await wiimFetchRaw(url, { deviceHost: r.device.host, timeoutMs: 7000 });
     if (res.status >= 400 || !res.contentType.startsWith("image/")) return fallback();
     if (artCache.size > 200) artCache.clear();
