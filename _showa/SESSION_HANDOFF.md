@@ -1,6 +1,6 @@
 # Showa Hi-Fi Counter — Session Handoff
-*Updated end of session: July 27, 2026, through Round 35. Supersedes all
-prior handoff content.*
+*Updated end of session: July 27, 2026, through Round 37 (upstream cherry-picks: v0.3.8–v0.3.11).
+Supersedes all prior handoff content.*
 
 ## tl;dr for picking this back up
 
@@ -25,15 +25,128 @@ casts. **Still on `main` directly — no sync branch was cut. Backup branch
 6. **Niche/cubby cascade** on other card proportions.
 7. Open flags from earlier rounds (dropdown-compartment gap, `.control-tile`
    shadow values, Round 27 accordion pending live review).
-8. **NEXT UPSTREAM INCREMENT (queued, not started):** cherry-pick `2848f6b`
-   (loop-mode symmetric encode/decode fix — the fork currently carries the
-   buggy write-`0`-for-off table, which the device reads back as repeat-all)
-   and `55a766c` (`deriveSource` extraction + 4-arg `detectService` with
-   `INTERNAL_VENDOR_NAMES`/`isRealVendor` filtering). Decide first whether to
-   keep building on `main` or cut a branch. **Do NOT cherry-pick `7886c83`** —
-   its snapshot rewrite was hand-applied this round and would double-conflict.
+8. ~~**NEXT UPSTREAM INCREMENT (queued, not started):**~~ **CLOSED (Round 37).**
+   Cherry-picked `2848f6b` (loop-mode fix) and `55a766c` (deriveSource) onto
+   `main`. See Round 37 section. Fork is now current through upstream v0.3.11.
+   Upstream has since added v0.3.12 Home Assistant add-on (`3dcb273`) — no
+   overlap with our codebase, safely ignored.
 
-## Round 35 — GetInfoEx now-playing sync (this session)
+## Round 37 — Upstream cherry-picks: v0.3.8–v0.3.11 (this session)
+
+**Data layer only — `src/lib/wiim/` files, no `_showa/` mirror.**
+
+### Two commits cherry-picked onto `main`
+
+**`2848f6b` — loop-mode symmetric encode/decode fix (upstream v0.3.9)**
+- `src/lib/wiim/parse.ts` + `README.md` only. Clean apply, no conflicts.
+- `computeLoopMode` table was asymmetric: "off" wrote `0`, device reads back
+  as repeat-all. Aligned both encode and decode to the symmetric
+  LinkPlay/Arylic table (0=all, 1=one, 2=shuffle+all, 3=shuffle, 4=off,
+  5=shuffle+one), hardware-verified by BenH (ozbenh) on WiiM Ultra + Mini.
+  `shuffle` now encodes all three states (all/one/none) rather than collapsing
+  to `2`; -1 and unknown fall through to off.
+
+**`55a766c` — `deriveSource` + PlayMedium fallback for OEM boxes (upstream v0.3.11)**
+- `src/lib/wiim/{parse,commands,snapshot,upnp}.ts`. Two files conflicted:
+  - `commands.ts`: comment-only conflict — `playType` was already hand-applied
+    in Round 35; accepted upstream's updated JSDoc wording.
+  - `parse.ts`: inline source-resolution logic vs refactored `deriveSource()`
+    call — accepted upstream (that's the point of the pick).
+  - `snapshot.ts` + `upnp.ts` landed cleanly.
+- Extracted `deriveSource(mode, vendor)` into `parse.ts` (shared by httpapi
+  path in `parsePlayerStatus` and the snapshot OEM fallback).
+- `upnp.ts`: added `PLAY_MEDIUM_TO_MODE` + `modeFromPlayMedium`. When
+  `<PlayType>` is absent or `-1`, `PlayMedium` is translated to the equivalent
+  mode integer (BLUETOOTH=41, OPTICAL=43, SPOTIFY=31, TIDAL_CONNECT=32, etc.).
+- `snapshot.ts`: OEM fallback block — when `player.sourceKey === null` after
+  httpapi, re-derives from `tm.transport.playType`; WiiM devices (always have
+  a good mode) are untouched.
+
+### Commit history after this session
+
+```
+f2dae93  feat(now-playing): source fallback via GetInfoEx PlayType / PlayMedium
+b02fd94  fix(loop-mode): symmetric repeat/shuffle encode/decode
+1e1768a  feat(now-playing): GetInfoEx transport + metadata through multiroom snapshot
+```
+
+### Upstream coverage
+
+Fork is now current through **upstream v0.3.11**. Upstream `3dcb273` (v0.3.12
+Home Assistant add-on, out-of-scope) exists but has zero overlap with our
+codebase — safely left out. **Do NOT cherry-pick `7886c83`** — its snapshot
+rewrite was hand-applied in Round 35 and would double-conflict.
+
+Backup branch from this session: `backup-main-pre-v03811-picks` at `1e1768a`.
+
+---
+
+## Round 36 — Infrastructure fix: CSRF origin mismatch + WSL config cleanup
+
+### No code changes this round. Infrastructure / config only.
+
+Greg reported the dashboard unreachable at `http://localhost:39446/`. Initial
+diagnosis chased WSL2 mirrored networking instability (portproxy rules were
+added then removed, NAT mode was tried then reverted) — but the **root cause
+of the "failed to fetch" on mutations** (source switches, playback controls)
+was a CSRF origin mismatch, not networking.
+
+### The actual fix
+
+**`.env`**: `APP_ORIGIN=https://wiim.example.com` → `APP_ORIGIN=http://localhost:39446`.
+The app's `assertSameOrigin` CSRF guard (`src/lib/auth/csrf.ts`) checks every
+mutation request's `Origin` header against `APP_ORIGIN`. With the placeholder
+`https://wiim.example.com`, every write from `http://localhost:39446` was
+silently 403'd. Reads/polling worked fine (GET requests skip the check), so
+the dashboard loaded and displayed streams but every control action failed.
+This was likely latent since the app added CSRF protection — previously
+either the check was looser or `APP_ORIGIN` wasn't enforced.
+
+### WSL config changes (net result after all back-and-forth)
+
+**`.wslconfig`** — final state:
+```ini
+[wsl2]
+kernelCommandLine = sysctl.vm.overcommit_memory=1
+networkingMode=mirrored
+
+[experimental]
+autoMemoryReclaim=disabled
+```
+- `networkingMode=mirrored` **retained** (was temporarily removed then
+  restored — NAT mode couldn't route through the Hyper-V adapter).
+- `autoMemoryReclaim=disabled` moved from `[wsl2]` (where it was an
+  unrecognized key, per WSL warning) to `[experimental]` (its correct
+  section).
+
+**`launch-dashboard.ps1`** — restored to original (mirrored mode, no
+portproxy). A NAT-mode version with dynamic portproxy was written mid-session
+but reverted.
+
+### Lessons
+- **Do not add portproxy rules when `networkingMode=mirrored` is active** —
+  they intercept localhost traffic that mirrored mode is already handling
+  and break connectivity.
+- The repeated WSL shutdowns/restarts destabilized the networking bridge;
+  a full Windows reboot was needed to recover.
+- `autoMemoryReclaim` belongs under `[experimental]`, not `[wsl2]`.
+- The PWA service worker (`sw.js`) can cache stale state across container
+  restarts — if the browser shows `sw.js` fetch errors, unregister the
+  service worker and clear site data in devtools before debugging further.
+
+### Files changed
+- `.env` — `APP_ORIGIN` value (not committed, `.gitignore`'d).
+- `.wslconfig` — `autoMemoryReclaim` section fix.
+- `launch-dashboard.ps1` — temporarily modified, then restored to original.
+- No source code changes. No `_showa/` changes. No Docker rebuild needed
+  (`.env` change picked up by `docker compose up -d` recreate).
+
+### What's still open (unchanged from Round 35)
+See the "What's open" list above — nothing was closed or added this round.
+The next real work item remains the upstream cherry-picks (`2848f6b` +
+`55a766c`) with a branch decision first.
+
+## Round 35 — GetInfoEx now-playing sync (prior session)
 
 ### Context: the fork has diverged far past the old handoff's picture
 The Round 34 note ("already on v0.3.6, no merge needed") is stale. Reality as
