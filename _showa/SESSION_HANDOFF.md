@@ -1,13 +1,19 @@
 # Showa Hi-Fi Counter — Session Handoff
-*Updated end of session: July 7, 2026, through Round 34. Supersedes all
+*Updated end of session: July 27, 2026, through Round 35. Supersedes all
 prior handoff content.*
 
 ## tl;dr for picking this back up
 
-Round 34 was a maintenance + upstream-sync session, then a kiosk re-skin.
-The codebase is confirmed already on v0.3.6 (latest upstream) with all Showa
-work as unstaged modifications on top — no merge needed. The kiosk/fullscreen
-view (`kiosk-view.tsx`) has been fully re-skinned to match the Showa language.
+Round 35 was a real upstream-sync session: the codebase has moved well past
+the old "v0.3.6, no merge needed" state. The fork is now ~30 commits ahead of
+upstream on `main` (its own 0.4.0 with multiroom, wake-alarm, PWA shell, plus
+recent multiroom-slave fixes). Upstream reached v0.3.11. This session
+integrated **only** upstream's GetInfoEx now-playing work (issues #4/#8/#9) by
+cherry-picking `a05ba34` and hand-applying the `7886c83` transport shape,
+leaving the rest of upstream's churn out. The GetInfoEx transport + metadata
+path is live and hardware-verified on standalone and multiroom-slave Plex
+casts. **Still on `main` directly — no sync branch was cut. Backup branch
+`backup-main-pre-getinfoex` at `88f4e7d`.**
 
 **What's open:**
 1. ~~Milestone B — per-channel write path.~~ **CLOSED.**
@@ -19,6 +25,117 @@ view (`kiosk-view.tsx`) has been fully re-skinned to match the Showa language.
 6. **Niche/cubby cascade** on other card proportions.
 7. Open flags from earlier rounds (dropdown-compartment gap, `.control-tile`
    shadow values, Round 27 accordion pending live review).
+8. **NEXT UPSTREAM INCREMENT (queued, not started):** cherry-pick `2848f6b`
+   (loop-mode symmetric encode/decode fix — the fork currently carries the
+   buggy write-`0`-for-off table, which the device reads back as repeat-all)
+   and `55a766c` (`deriveSource` extraction + 4-arg `detectService` with
+   `INTERNAL_VENDOR_NAMES`/`isRealVendor` filtering). Decide first whether to
+   keep building on `main` or cut a branch. **Do NOT cherry-pick `7886c83`** —
+   its snapshot rewrite was hand-applied this round and would double-conflict.
+
+## Round 35 — GetInfoEx now-playing sync (this session)
+
+### Context: the fork has diverged far past the old handoff's picture
+The Round 34 note ("already on v0.3.6, no merge needed") is stale. Reality as
+of this session:
+- `git log upstream/main..HEAD` shows **~30 commits ahead**: the re-skin
+  (`3c84f4a`), then PWA shell, wake-alarm, multiroom (group/sync), a self-cut
+  **0.4.0** (`f1ca921`), ESLint, and a run of recent multiroom-slave fixes
+  (Plex/Spotify master-mirroring).
+- Upstream advanced to **v0.3.11**. Its post-0.3.6 work is contained: the
+  GetInfoEx cluster (issues #4/#8/#9) plus small `client.ts`/`kiosk-view.tsx`
+  touches. It did **not** sprawl into `eq.ts`, `multiroom.ts`, `capabilities.ts`
+  — our heavily-forked files were left alone upstream.
+
+### Upstream issue #4 (our Plex/DLNA writeup) — closed as completed
+- Play/pause + bitrate/format shipped upstream via GetInfoEx (0.3.8/0.3.9).
+  Upstream **replaced** our approach: position-delta → GetInfoEx
+  `CurrentTransportState`; `getMetaInfo`+`detectService(vendor)` → GetInfoEx
+  metadata path.
+- **Album art remains a known-limitation upstream** (Plex art is cross-host;
+  their art proxy refuses cross-host LAN fetches for SSRF safety). So our
+  `isPlexArtUrl` shim in `client.ts` stays **fork-only and load-bearing** —
+  do not expect upstream to ever ship the art piece; a trusted-host allowlist
+  is the design they said they'd accept if we want to contribute it.
+
+### What was integrated this round
+Cherry-picked **`a05ba34`** onto `main` (commit `00d3602`): brings the new
+`src/lib/wiim/upnp.ts` (GetInfoEx UPnP client) + `fetchTrackMeta` into
+`commands.ts`. Conflicts resolved: `snapshot.ts`/`commands.ts`/`client.ts`
+auto-merged; `art/route.ts` hand-resolved (kept our slave→master art-host
+redirect, adopted the `fetchTrackMeta` name).
+
+Then a follow-up hand-edit (three files) applied the **`7886c83` transport
+shape by hand** rather than cherry-picking `7886c83` (its snapshot rewrite
+conflicts with our multiroom fork):
+
+**`commands.ts`** — `fetchTrackMeta` upgraded from `Promise<MetaInfo>` to
+`Promise<TrackMeta>` (`{ meta, transport }`); `TrackMeta` interface added;
+`PlaybackState` imported. Byte-identical to upstream `7886c83`'s version, so a
+future `7886c83` sync won't conflict on this function.
+
+**`snapshot.ts`** — the substantive change:
+- `vendorTransport` poll-delta Map + `VENDOR_TRANSPORT_TTL_MS` **deleted**.
+- Parallel fetch already `fetchTrackMeta` (from a05ba34 auto-merge); mirror
+  branch switched `fetchMetaInfo(metaIp)` → `fetchTrackMeta(metaIp)` so
+  metadata + transport come from `metaIp` consistently.
+- New transport gate: `if (transport?.state && player.sourceKey === "wifi")
+  player.state = transport.state;` — honest GetInfoEx `CurrentTransportState`,
+  no inference, no one-poll lag. Physical/BT keep httpapi state.
+- **Master-mirror block UNTOUCHED** — whole-player mirror + local volume/mute
+  preserved. The narrowing to metadata-only mirror was considered and
+  **rejected** (no-behavior-change was the safer call).
+- **FORK DELTA:** bitRate backfill. GetInfoEx on this firmware omits
+  `song:bitrate`; our card shows kbps for all sources; so on the
+  GetInfoEx-wins branch we backfill `bitRate` (and rebuild the quality string)
+  from `getMetaInfo`. Localized here (plan B), **not** in `commands.ts`, to
+  keep `commands.ts` a clean take-upstream file on future syncs.
+
+**`art/route.ts`** — `const meta =` → `const { meta } =` (destructure the new
+wrapper). Our slave→master art-host redirect preserved.
+
+### Hardware facts learned (WiiM Ultra `.102`, WiiM Pro `.195`)
+Verified with raw SOAP curls before writing any code:
+- **GetInfoEx endpoint:** port **49152**, control path
+  `/upnp/control/rendertransport1`, **plain HTTP** (NOT the HTTPS httpapi
+  surface — don't let anything upgrade the UPnP call to HTTPS). Matches
+  upstream `upnp.ts`'s discovery.
+- **Master while grouped:** GetInfoEx unchanged — honest
+  `CurrentTransportState=PLAYING`, full DIDL. Mastering doesn't alter its
+  surface.
+- **Slave while grouped:** own DIDL is **blank** (`albumArtURI=un_known`,
+  `TrackURI=MULTIROOM-SLAVE`) — metadata must mirror from master. BUT the
+  slave's own GetInfoEx **transport is honest** (`PLAYING`) and it reports
+  `SlaveFlag:1`, `MasterUUID`, `CurrentVolume` (local). Its `getStatusEx`
+  carries `group:"1"`, `master_ip`, `master_uuid`, own `uuid` — so the
+  existing `multiroomMasterIp` resolution is sound; no UUID-matching needed.
+- **Firmware DIDL tags:** emits `song:rate_hz` + `song:format_s` but **never
+  `song:bitrate`** (hence the backfill). `format_s=16` for the Plex FLAC
+  matches getMetaInfo's bitDepth 16 — the two sources agree; getMetaInfo just
+  adds the kbps.
+- **Plex art is cross-host** (`.107` Plex vs `.102`/`.195` WiiM) — confirms
+  `isPlexArtUrl` shim still required for art to render.
+
+### Verification + result
+- On-disk verified: deleted symbols absent, new gate/backfill present,
+  `fetchTrackMeta` returns `TrackMeta`, only 3 call sites project-wide.
+- **First `docker compose up -d --build` was fully CACHED** (including
+  `RUN npm run build`) — a stale-context gotcha; the edits had NOT compiled.
+  `docker compose build --no-cache` forced a real 93s `npm run build`, which
+  **compiled clean**. (Lesson: after source edits, if the build shows
+  `CACHED [builder 5/5] RUN npm run build`, it did not recompile — use
+  `--no-cache`.)
+- Greg confirmed **all live tests pass**: standalone + multiroom-slave Plex
+  casts show correct honest play/pause with no lag; kbps readout intact; slave
+  art mirrors from master.
+
+### Files touched
+- `src/lib/wiim/commands.ts`, `src/lib/wiim/snapshot.ts`,
+  `src/app/api/devices/[id]/art/route.ts`, new `src/lib/wiim/upnp.ts`
+  (from a05ba34). **Data-layer — `src/`-only, no `_showa/` mirror**, per
+  convention. Requires `docker compose up -d --build`.
+- The three hand-edits were uncommitted at time of writing this handoff —
+  commit after confirming (a05ba34 itself is committed as `00d3602`).
 
 ## Round 34 — Upstream sync audit + kiosk re-skin (this session)
 

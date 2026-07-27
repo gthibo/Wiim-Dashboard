@@ -850,6 +850,34 @@ corner gradient"):**
   Pro/Amp Ultra/Pro Plus, very likely expose `plugged` but unconfirmed).
   Device captures saved as `_showa/diag-102.json` / `_showa/diag-195.json`.
 
+**Round 34 (upstream sync audit + kiosk re-skin):**
+- Full detail in SESSION_HANDOFF.md. Kiosk/fullscreen view re-skinned; upstream
+  sync audited (at the time: confirmed on v0.3.6, no merge needed — note that
+  Round 35 supersedes this, the fork has since diverged ~30 commits ahead).
+
+**Round 35 (GetInfoEx now-playing sync — data layer, `src/` only):**
+- Integrated upstream's GetInfoEx now-playing work (issues #4/#8/#9) into the
+  fork, which is now ~30 commits ahead of upstream on `main` (its own 0.4.0:
+  multiroom, wake-alarm, PWA). Cherry-picked `a05ba34` (new `upnp.ts` GetInfoEx
+  UPnP client + `fetchTrackMeta`) as commit `00d3602`; hand-applied upstream
+  `7886c83`'s `{ meta, transport }` shape rather than cherry-picking it (its
+  snapshot rewrite conflicts with the multiroom fork).
+- `snapshot.ts`: `vendorTransport` poll-delta heuristic **deleted**, replaced
+  by honest GetInfoEx `CurrentTransportState` gated on `sourceKey === "wifi"`.
+  Master-mirror block preserved unchanged. **Fork delta**: bitRate backfill
+  from getMetaInfo (this firmware's GetInfoEx omits `song:bitrate`; the card
+  shows kbps for all sources) — localized in `snapshot.ts`, not `commands.ts`.
+- `commands.ts`: `fetchTrackMeta` → `Promise<TrackMeta>`. `art/route.ts`:
+  destructure `{ meta }`; slave→master art-host redirect preserved.
+- Upstream issue #4 closed as completed (play/pause + bitrate shipped upstream;
+  cross-host album art remains a known-limitation — our `isPlexArtUrl` shim
+  stays fork-only). Hardware-verified on `.102`/`.195` (standalone + grouped
+  Plex casts, honest play/pause, kbps intact, slave art mirrors). Full detail,
+  including the GetInfoEx endpoint/DIDL-tag facts and the `--no-cache` build
+  lesson, in SESSION_HANDOFF.md.
+- **Data layer — `src/` only, no `_showa/` mirror**, per convention. Backup
+  branch `backup-main-pre-getinfoex` at `88f4e7d`.
+
 ## Known gaps / deferred work
 
 - **Palette re-check, explicitly deferred — see "Open thread" above.** Do not
@@ -942,3 +970,11 @@ corner gradient"):**
       Confirmed live — Greg: "looks perfect".
 - [x] Upstream sync audit (Round 34): codebase confirmed on v0.3.6 (latest),
       all Showa work as unstaged modifications on top, no merge needed.
+- [x] GetInfoEx now-playing sync (Round 35): cherry-picked `a05ba34` +
+      hand-applied `7886c83` transport shape. Honest GetInfoEx play/pause
+      replaces the poll-delta heuristic; bitRate backfill (fork delta) keeps
+      the kbps readout. Hardware-verified standalone + multiroom-slave.
+      **Fork is now ~30 commits ahead of upstream on `main`** — Round 34's
+      "on v0.3.6, no merge needed" is superseded. Next increment queued:
+      `2848f6b` (loop-mode fix) + `55a766c` (`deriveSource`/4-arg
+      `detectService`). Do NOT cherry-pick `7886c83`.
