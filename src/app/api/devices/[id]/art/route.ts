@@ -40,7 +40,8 @@ export async function GET(req: Request, { params }: Params) {
       artHost = info.multiroomMasterIp;
     }
 
-    const meta = await fetchTrackMeta(artHost);
+    // Art only needs metadata; transport is ignored here.
+    const { meta } = await fetchTrackMeta(artHost);
     // Use the device's own art if present; otherwise fall back to an external
     // lookup by artist + album — local/NAS files often expose no embedded cover.
     let artSrc = meta.albumArt;

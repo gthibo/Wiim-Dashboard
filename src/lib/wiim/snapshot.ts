@@ -4,6 +4,7 @@ import {
   fetchDeviceInfo,
   fetchPlayerStatus,
   fetchTrackMeta,
+  fetchMetaInfo,
   fetchSubwoofer,
   fetchOutput,
   fetchPresets,
@@ -22,25 +23,6 @@ export interface PollableDevice {
   ip: string;
   capabilities: DeviceCapabilities | null;
 }
-
-/**
- * Poll-delta transport memory for vendor-push sources (Plex/DLNA). These
- * sessions report a permanently-stale `status:stop` plus a `curpos` that
- * reflects the real track position, so a SINGLE snapshot can't tell play from
- * stop (confirmed against captured payloads: stopping the player left status
- * unchanged and curpos still advanced). We instead compare position across
- * consecutive polls: advanced ⇒ playing, frozen ⇒ stopped. Inherently one
- * poll behind, and can't distinguish stop from pause (both freeze) — both
- * acceptable, accepted limitations. Only consulted for the vendor-push case;
- * every honest source keeps the device's own reported state untouched.
- *
- * Keyed by the IP actually being read for transport data (`metaIp` below) —
- * a device's own ip when reading itself, or its master's ip when mirroring a
- * multiroom master. That means a master and every slave mirroring it share
- * one entry, so they agree on playing/stopped instead of drifting.
- */
-const vendorTransport = new Map<string, { position: number; at: number; playing: boolean }>();
-const VENDOR_TRANSPORT_TTL_MS = 60_000;
 
 /** Fetch a complete, normalised snapshot for one device in a single round. */
 export async function getDeviceSnapshot(device: PollableDevice): Promise<DeviceSnapshot> {
@@ -128,12 +110,45 @@ export async function getDeviceSnapshot(device: PollableDevice): Promise<DeviceS
       artist: null,
       album: null,
     };
-    const meta =
+    // Normal path: fetchTrackMeta already ran in parallel (metaR). Mirror path
+    // (slave): re-fetch from the master's ip so metadata comes from the device
+    // actually playing. Both yield { meta, transport }.
+    const tm =
       metaIp !== device.ip
-        ? await fetchMetaInfo(metaIp)
+        ? await fetchTrackMeta(metaIp)
         : metaR.status === "fulfilled"
           ? metaR.value
-          : emptyMeta;
+          : { meta: emptyMeta, transport: null };
+    let meta = tm.meta;
+    const transport = tm.transport;
+
+    // FORK DELTA (not upstream): our now-playing card shows kbps for ALL
+    // sources, but GetInfoEx omits song:bitrate on this firmware. When
+    // GetInfoEx supplied the metadata (cast/DLNA) but left bitRate null,
+    // backfill it from getMetaInfo — a stable, correct bitrate that agrees
+    // with GetInfoEx on the other fields (hardware-verified: Plex FLAC both
+    // 16-bit/44.1k, httpapi adds the kbps). Only fires on the GetInfoEx-wins
+    // branch; BT/physical already fall through to getMetaInfo inside
+    // fetchTrackMeta, so bitRate is present there.
+    if (meta.bitRate == null && (meta.albumArt || meta.sampleRate != null)) {
+      const h = await fetchMetaInfo(metaIp).catch(() => null);
+      if (h?.bitRate != null) {
+        meta = {
+          ...meta,
+          bitRate: h.bitRate,
+          quality:
+            [
+              `${h.bitRate} kbps`,
+              meta.bitDepth != null ? `${meta.bitDepth}-bit` : null,
+              meta.sampleRate != null
+                ? `${(meta.sampleRate / 1000).toFixed(1).replace(/\.0$/, "")} kHz`
+                : null,
+            ]
+              .filter(Boolean)
+              .join(" · ") || meta.quality,
+        };
+      }
+    }
     player.quality = meta.quality;
     // Sources like Bluetooth leave Title/Artist empty in getPlayerStatusEx but
     // provide them via getMetaInfo (AVRCP) — fall back to those (only when empty,
@@ -169,31 +184,15 @@ export async function getDeviceSnapshot(device: PollableDevice): Promise<DeviceS
       player.albumArt = `/api/devices/${device.id}/art?sig=${sig}`;
     }
 
-    // Poll-delta transport for the vendor-push quirk (Plex on mode 99): the
-    // device's `status` is permanently "stop" and useless here, so derive
-    // play/stop by whether `position` advanced since the previous poll. Only
-    // for this exact signature (mode 99 + vendor) — every other source keeps
-    // its honest device-reported state. See the vendorTransport note above.
-    //
-    // `player` here may already be the mirrored master's own status (see the
-    // master-mirroring block above) — this still applies in that case, e.g.
-    // when a slave's master is itself a Plex cast receiver. It does NOT fire
-    // for a Spotify Connect master, because the master's own status is
-    // honestly "playing" with a real advancing `curpos`, not mode 99 at all —
-    // the whole reason mirroring fixes that case is that it never reaches
-    // this heuristic in the first place.
-    if (player.vendor && player.sourceMode === "99") {
-      const now = Date.now();
-      const prev = vendorTransport.get(metaIp);
-      const fresh = prev && now - prev.at < VENDOR_TRANSPORT_TTL_MS;
-      // First sight (or stale memory): trust nothing yet — assume playing so a
-      // freshly-cast stream isn't shown frozen for one poll. Thereafter, the
-      // position delta is authoritative. (A track change resets position and
-      // reads as "stopped" for a single poll until it climbs past the stored
-      // value — a brief, self-correcting blip.)
-      const playing = !fresh ? true : player.position > prev!.position;
-      vendorTransport.set(metaIp, { position: player.position, at: now, playing });
-      player.state = playing ? "playing" : "stopped";
+    // Honest play state from GetInfoEx's CurrentTransportState, read from the
+    // same source as the metadata (metaIp) — so a slave's state reflects the
+    // master it mirrors. Gated on sourceKey === "wifi" (network/cast): physical
+    // inputs and Bluetooth keep their httpapi-reported state, where GetInfoEx
+    // transport is meaningless. Replaces the old mode-99 position-delta
+    // heuristic — GetInfoEx reports honest play/pause/stop with no stuck-"stop"
+    // bug, so no inference and no one-poll lag.
+    if (transport?.state && player.sourceKey === "wifi") {
+      player.state = transport.state;
     }
   }
 

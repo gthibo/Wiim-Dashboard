@@ -17,6 +17,7 @@ import type {
   DeviceInfo,
   SubwooferStatus,
   OutputStatus,
+  PlaybackState,
 } from "./types";
 import { clamp } from "@/lib/utils";
 
@@ -126,29 +127,39 @@ export async function fetchMetaInfo(ip: string): Promise<MetaInfo> {
  * Now-playing metadata, preferring UPnP `GetInfoEx` — it returns fuller, more
  * reliable track data than the httpapi `getMetaInfo` for DLNA/cast and OEM
  * sources (Plex, JRiver, iEAST, AudioPro…; issues #4/#8/#9) — and falling back
- * to httpapi when the device doesn't speak UPnP. Only the metadata is taken
- * from here; transport state / position / mode / vendor still come from
- * getPlayerStatusEx (parsePlayerStatus).
+ * to httpapi when the device doesn't speak UPnP. Transport state is read from
+ * the SAME GetInfoEx call — CurrentTransportState is the honest play/pause/stop
+ * for cast/push sources where getPlayerStatusEx sticks on "stop" (issue #4).
  */
-export async function fetchTrackMeta(ip: string): Promise<MetaInfo> {
+export interface TrackMeta {
+  meta: MetaInfo;
+  transport: { state: PlaybackState | null; playType: string | null } | null;
+}
+
+export async function fetchTrackMeta(ip: string): Promise<TrackMeta> {
   const g = await fetchGetInfoEx(ip).catch(() => null);
-  // Use GetInfoEx only when it actually carries track metadata. Bluetooth
+  const transport = g ? { state: g.state, playType: g.playType } : null;
+  // Use GetInfoEx metadata only when it actually carries track info. Bluetooth
   // (metadata comes via AVRCP, not AVTransport) and physical inputs come back
   // empty from GetInfoEx while httpapi getMetaInfo still has the data — fall
-  // back there rather than showing a blank card.
+  // back there for the metadata, but keep GetInfoEx's transport (its play
+  // state is valid regardless).
   if (g && (g.title || g.albumArt || g.sampleRate != null)) {
     return {
-      albumArt: g.albumArt,
-      quality: g.quality,
-      sampleRate: g.sampleRate,
-      bitDepth: g.bitDepth,
-      bitRate: g.bitRate,
-      title: g.title,
-      artist: g.artist,
-      album: g.album,
+      meta: {
+        albumArt: g.albumArt,
+        quality: g.quality,
+        sampleRate: g.sampleRate,
+        bitDepth: g.bitDepth,
+        bitRate: g.bitRate,
+        title: g.title,
+        artist: g.artist,
+        album: g.album,
+      },
+      transport,
     };
   }
-  return fetchMetaInfo(ip);
+  return { meta: await fetchMetaInfo(ip), transport };
 }
 
 /** Connected Bluetooth *source* device name (the phone/tablet casting to us). */
