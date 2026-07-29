@@ -1,23 +1,22 @@
 # Showa Hi-Fi Counter — Session Handoff
-*Updated end of session: July 27, 2026, through Round 38 (palette retune + heading consistency).
+*Updated end of session: July 27, 2026, through Round 39 (preset-art cache fix + README rewrites).
 Supersedes all prior handoff content.*
 
 ## tl;dr for picking this back up
 
-Round 38 closed out all remaining open items from the handoff. The palette
-retune is done (faceplate `#a09287` → `#B19D8B`, rust `#B3441E` → `#C64C1A`),
-and all panel headings now use a uniform `font-display text-base uppercase
-tracking-[0.15em]` (Antonio, 1rem). The fork is current through upstream
-v0.3.11. **No open items remain.**
+Round 39 was a bug-fix + documentation session. A preset-art stale-cache bug
+was diagnosed and fixed (data layer only, no visual changes). Both READMEs
+were fully rewritten to reflect current app state. **No open visual or
+functional items remain.** Known deferred items are in `_showa/README.md`.
 
-**What's closed this session:**
-1. ~~Milestone C~~ — EQ L/R mode switch confirmed working by Greg.
-2. ~~Niche/cubby cascade~~ — cubby proportions settled, no cascade needed.
-3. ~~Accordion / source panel flags~~ — confirmed complete by Greg.
-4. ~~Palette retune~~ — 10 CSS custom property swaps in `globals.css`.
-5. ~~Panel heading inconsistency~~ — all panels now use Antonio at 1rem.
+**What happened this session:**
+1. ~~Preset art stale-cache bug~~ — diagnosed and fixed. Confirmed live.
+2. ~~Root `README.md`~~ — full refresh (15 targeted changes against confirmed code/git state).
+3. ~~`_showa/README.md`~~ — complete rewrite to fresh reference-doc structure.
 
-**What's open:** Nothing. The handoff is clean.
+**What's open:** Nothing blocking. See Known open items in `_showa/README.md`
+(mobile optimization, source/output panel texture, upstream sync monitoring,
+screenshot refresh).
 
 ## Round 38 — Palette retune + panel heading consistency
 
@@ -1976,3 +1975,68 @@ two siblings:
 - Greg corrects firmly when something doesn't match a reference — always
   verify layout fixes against a real screenshot, not just "this should work
   by analogy."
+
+---
+
+## Round 39 — Preset-art cache fix + README rewrites
+
+### Preset-art stale-cache bug (`src/app/api/devices/[id]/preset-art/route.ts`)
+
+**Symptom:** Two preset tiles showed wrong album art after presets were
+re-pointed in the WiiM mobile app.
+
+**Root cause:** The server-side byte cache (`artCache`) keyed on
+`deviceId:index`. When a slot is re-pointed, its art URL changes but the
+cache key doesn't — so the old bytes were served for up to an hour. The
+browser `cache-control: private, max-age=3600` added another hour on top.
+
+**Fix:** Resolve the slot's art URL first (cheap — behind `getPresetList`'s
+existing 30s cache), then key the byte cache on `deviceId:url`. When a slot
+is re-pointed the URL changes, the old key is never requested again, and the
+new image is fetched and cached immediately. Browser `max-age` reduced
+`3600` → `60` so the browser can't outlive a preset change either.
+
+**Files touched:** `src/app/api/devices/[id]/preset-art/route.ts` — `src/`
+only (data layer, no `_showa/` mirror). Verified on disk with
+`Get-Content -LiteralPath + -match`. Confirmed live after `--build`
+restart: wrong-art tiles resolved immediately.
+
+**Key learning:** The `[id]` bracket in API route paths is a PowerShell
+glob character — `Select-String -Path` silently matches nothing on these
+paths. Always use `Get-Content -LiteralPath` + `-match` for verification
+on any file under `api/devices/[id]/`.
+
+### Root `README.md` — full refresh
+
+15 targeted changes verified against code and git state before writing:
+- Palette tokens updated (`#a09287`/`#B3441E` → `#B19D8B`/`#C64C1A`).
+- Design prose updated (grain texture, walnut cubby, photo tonearm, seam vocabulary).
+- "Desktop-only" → "Not mobile optimized" (leaves door open).
+- Album-art theming feature row removed (colour wash removed from NP card).
+- Vinyl view row updated (photo tonearm added; Phono-default removed).
+- Plex added to stream-info service list.
+- New row: Now-playing metadata / UPnP GetInfoEx.
+- Presets row: 2×6/horizontal-scroll → 6-up walnut cubby description.
+- Multiroom row: "needs testing" caveat removed; Device panel placement noted.
+- New row: Source/Output/Device collapsible panel.
+- Version pin `:0.3.0` → `:0.4.0`.
+- Multiroom troubleshoot row removed; two new rows added (preset art, WSL2 lag).
+- Project structure: lib/lyrics, lib/artwork, lib/sleep, lastfm/stats added.
+- Upstream framing replaced with approved bidirectional language (tracks each
+  other, fixes flow both ways, own 0.4.0 release line, upstream still active).
+
+### `_showa/README.md` — complete rewrite
+
+Replaced the stale diary-format document ("work in progress," "current focus,"
+"not yet started") with a clean reference document:
+- Mobile optimization note + mobile as a known open item.
+- Permanent repo-config changes (tsconfig/dockerignore).
+- Dual-write convention summary.
+- Design tokens table (Round 38 locked values, all tokens).
+- Asset inventory (all re-skin PNGs in `public/`, with sizes and consumers).
+- Component inventory (all shipped components, current state per component).
+- Operational patterns (deploy, dry-run, sha256, bracket-check, LiteralPath
+  gotcha, SQLite cache, WSL2 networking, PWA service worker).
+- Known open items (mobile optimization, panel texture, upstream sync,
+  screenshot refresh).
+- Changelog Round 1–38 preserved verbatim as condensed historical record.
