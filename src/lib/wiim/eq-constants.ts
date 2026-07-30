@@ -37,6 +37,37 @@ export const GRAPHIC_GAIN = { min: -12, max: 12, step: 0.5 } as const;
 export const PEQ_LETTERS_ALL = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l"] as const;
 export const PEQ_LETTERS = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j"] as const;
 
+/**
+ * Per-band colour ramp for the visible bands a–j, warm→cool. Faceplate-
+ * harmonised rather than a spectrum: it walks from velvet-red through the rust
+ * primary and an amber/olive middle into tape-teal, all at moderate saturation
+ * and mid lightness so the set reads as one family against the walnut. Anchored
+ * on the locked tokens — rust #C64C1A (hsl 17 77 44), tape teal #2E7D7A
+ * (hsl 178 46 33), velvet #7A2424 (hsl 0 54 31). Indexed to PEQ_LETTERS so a
+ * given letter is ALWAYS the same colour. Shared by the response-curve plot
+ * (lines + dots) and the parametric row letters, so the panel reads as one
+ * legend. Off/disabled rows deliberately do NOT use these — see bandColor().
+ */
+export const BAND_COLORS: string[] = [
+  "hsl(0 52% 42%)", // a — velvet red
+  "hsl(12 68% 46%)", // b — red-rust
+  "hsl(20 74% 48%)", // c — rust (primary neighbourhood)
+  "hsl(32 66% 50%)", // d — amber
+  "hsl(44 52% 52%)", // e — warm ochre
+  "hsl(62 34% 50%)", // f — olive
+  "hsl(120 26% 44%)", // g — muted green
+  "hsl(160 34% 42%)", // h — green-teal
+  "hsl(178 46% 40%)", // i — tape teal
+  "hsl(196 44% 46%)", // j — cool blue-teal
+];
+
+/** Colour for a band letter, stable regardless of array order. Returns the
+ *  ramp colour for a–j; anything else (k/l/unknown) falls back to rust. */
+export function bandColor(letter: string): string {
+  const idx = (PEQ_LETTERS as readonly string[]).indexOf(letter);
+  return idx >= 0 ? BAND_COLORS[idx] : "hsl(var(--primary))";
+}
+
 export const PEQ_DEFAULT_FREQ: Record<string, number> = {
   a: 31.25, b: 62.5, c: 125, d: 250, e: 500, f: 1000, g: 2000, h: 4000, i: 8000, j: 16000,
   k: 18000, l: 20000,

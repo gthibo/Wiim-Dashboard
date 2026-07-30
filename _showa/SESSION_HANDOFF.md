@@ -1,31 +1,123 @@
 # Showa Hi-Fi Counter — Session Handoff
-*Updated end of session: July 30, 2026, through Round 40 (EQ response-curve — SCOPED, NOT YET BUILT).
+*Updated end of session: July 30, 2026, through Round 42 (EQ response-curve BUILT + per-band colour + letter colour-match — LIVE, confirmed good, not yet committed).
 Supersedes all prior handoff content.*
 
 ## tl;dr for picking this back up
 
-Round 40 was a research + scoping session. **No code was written.** We
-investigated the rustywiim repo (ozbenh/rustywiim), confirmed its PEQ
-response-curve math is worth porting, read our live EQ code end-to-end, and
-produced a confirmed build plan for an EQ response-curve feature. **The build
-itself is the next session's job — everything below is ready to execute cold.**
+Rounds 41–42 BUILT the EQ response-curve feature that Round 40 scoped, then
+extended it with per-band colour. All live and confirmed good by Greg. **Not
+yet committed** — six code files + this handoff are staged-and-ready; commit is
+the only remaining step (see "Git state" at the end of the Round 41–42 entry).
 
-**What happened this session:**
-1. Reviewed a WiiM-forum HTTP-API thread — useful confirmations (LED_SWITCH_SET,
-   seek, switchmode list) for the *Universal Remote* project, plus the UPnP
-   `GetInfoEx` reliability point. Nothing new for the dashboard itself.
-2. Cloned `ozbenh/rustywiim` (Rust/GTK). Its `src/ui/eq/parametric.rs`
-   `band_response()` is a clean, correct RBJ Audio-EQ-Cookbook biquad
-   magnitude implementation covering all our filter types — worth porting.
-3. Read our live EQ code (`src/lib/wiim/eq.ts`, `types.ts`, `eq-constants.ts`,
-   `src/components/dashboard/eq-card.tsx`). Confirmed: EQ is slider-only today,
-   no response curve anywhere. Data shapes port cleanly (see plan).
-4. Produced the build plan below, user-approved.
+## Round 41–42 — EQ response curve: build + per-band colour (LIVE, uncommitted)
 
-**What's open:** The EQ response-curve build (fully scoped below). Plus prior
-deferred items in `_showa/README.md` (mobile optimization, source/output panel
-texture, upstream sync monitoring, screenshot refresh) and the unpushed
-handoff commit noted below.
+Three sub-rounds in one session. Everything below is on disk and running in the
+container (healthy); nothing is committed to git yet.
+
+### Round 41 — the build (executed the Round 40 plan)
+
+**New data-layer file `src/lib/wiim/eq-response.ts`** (SRC-ONLY, no `_showa/`
+mirror — pure logic). Port of ozbenh/rustywiim's `src/ui/eq/parametric.rs`
+`band_response()` RBJ biquad magnitude math onto our types:
+- `bandResponseDb(band, evalFreq)` — keyed on OUR integer modes: −1/4/unknown
+  → flat; 0/1/2 (LS/PK/HS) gain-driven with `|gain|<0.001 → 0` early-out;
+  3/5 (LP/HP) gain-INDEPENDENT, no early-out. Sample rate hardcoded 48000.
+- `parametricCurve(bands, nPoints)` — sum of visible bands (a–j / `PEQ_LETTERS`,
+  NOT a–l) at each log-spaced freq.
+- `graphicCurve(bands, nPoints)` — uniform Catmull-Rom (tension 0.5) spline
+  through the 10 ISO centres in log-freq space, gain-only.
+- Coord helpers `freqToX`/`xToFreq`/`dbToY`/`yToDb` (over `PEQ_RANGE`). The
+  inverses land now, unused, for the deferred draggable-nodes round.
+- **Verified 49/49** via a tsx scratch harness (flat cases, peak symmetry,
+  shelf asymptotes, LP/HP −3dB-at-corner + 12dB/oct rolloff, no NaN/Inf sweep,
+  coord round-trips, k/l exclusion). Q-default note: device reads default to
+  0.25, reset writes 1 — curve uses each band's own q as-read (faithful).
+
+**New component `eq-response-curve.tsx`** (DUAL-WRITE, SHA MATCH). Read-only
+SVG magnitude plot, faceplate-themed (recessed `hsl(30 10% 4%)` plot area +
+the fader groove shadow recipe, low-opacity faceplate grid, rust `--primary`
+sum line). Fixed viewBox 560×150, desktop-only. Parametric sums visible bands;
+L/R mode draws BOTH channels (inactive dimmed 35%, active full). Graphic draws
+the spline. No new fetch/SWR — reads state the card already holds.
+
+**Integration in `eq-card.tsx`** (DUAL-WRITE, SHA MATCH). Curve panel inserted
+above the band bank inside the `!enabled` opacity group (dims with the rest).
+Parametric curve gets `st.parametric.bands` (all channels) + `activeChan`;
+graphic gets `st.graphic.bands`.
+
+**Tooling note this session:** the Filesystem MCP `edit_file` timed out mid-run
+on the `_showa/eq-card.tsx` write and left the whole Filesystem/Windows MCP
+server wedged for a few minutes (two consecutive 4-min timeouts on different
+tools). It recovered on its own. The timed-out edit had NOT landed — verified
+by reading the file back, then re-wrote `_showa/` verbatim from `src/`. Lesson:
+after an MCP timeout, verify on disk before assuming success OR failure; the
+server may need a minute to unwedge before the next call works.
+
+### Round 42a — per-band colour (dots + sub-curves)
+
+Greg: the a–j dots were all rust, so you couldn't tell which was which.
+Decisions: **dots + faint per-band sub-curves** behind the sum;
+**faceplate-harmonised** palette (rust/teal/velvet family, warm→cool a→j), not
+a spectrum.
+
+- **Data layer** — added `perBandCurves(bands, nPoints): BandCurve[]` +
+  `BandCurve` type to `eq-response.ts`. One curve per visible, CONTRIBUTING
+  band on the SAME freq grid as `parametricCurve` (off + silent shelf/peak
+  omitted; LP/HP at gain 0 kept; k/l excluded; a→j order). Verified 14/14 —
+  key proof: per-band curves SUM to the total (superposition, max err ~1e-6).
+- **Component** — `BAND_COLORS` ramp, colour-matched ghost curves (1px,
+  strokeOpacity 0.5) drawn behind the rust sum, colour-matched centre dots.
+  Active channel only gets the decomposition (a dimmed L/R channel stays a
+  single rust line).
+
+### Round 42b — match the row letters to the dots
+
+Greg: the a–j letters in the parametric rows should match their dot colours.
+To avoid two drifting copies of the palette, **lifted it to the shared data
+layer**:
+- `eq-constants.ts` (src-only) — added `BAND_COLORS` + `bandColor(letter)`
+  (a–j → ramp; k/l/unknown → rust fallback).
+- `eq-response-curve.tsx` — dropped its local copy, imports `bandColor`.
+- `eq-card.tsx` — `PeqRow` letter now `style={{ color: off ?
+  "hsl(var(--primary))" : bandColor(band.letter) }}`. **Off rows stay rust**
+  (Greg's call — an Off band draws no dot, so its letter shouldn't advertise a
+  colour), still dimming to 45% via the existing `off` opacity.
+
+### Palette (locked this session) — `BAND_COLORS`, a–j warm→cool
+```
+a hsl(0 52% 42%)   velvet red     f hsl(62 34% 50%)   olive
+b hsl(12 68% 46%)  red-rust       g hsl(120 26% 44%)  muted green
+c hsl(20 74% 48%)  rust           h hsl(160 34% 42%)  green-teal
+d hsl(32 66% 50%)  amber          i hsl(178 46% 40%)  tape teal
+e hsl(44 52% 52%)  warm ochre     j hsl(196 44% 46%)  cool blue-teal
+```
+
+### Open follow-ups (candidates, none blocking — all raised, none requested)
+- **Graphic overshoot**: uniform Catmull-Rom can bulge between very different
+  adjacent gains. Swap to monotone cubic (Fritsch-Carlson) if it bothers.
+- **Row-letter contrast on tan**: the colours were tuned for the near-black
+  plot recess; on the faceplate-tan panel the lighter ones (e ochre, f olive)
+  may read low-contrast. Darken those entries or bump letter weight if so.
+- **Draggable nodes** — still the deferred next feature; the `xToFreq`/`yToDb`
+  inverses are already in `eq-response.ts` waiting for it.
+- Ghost-line opacity / plot height (`PLOT_H`) / fill opacity are the exposed
+  knobs if anything reads off over time.
+- rustywiim remains the standing enhancement well (see Round 40 standing note).
+
+### Git state — COMMIT IS THE ONLY REMAINING STEP
+HEAD is `32dee5c` ("Session handoff updated"), and per Greg the previous
+Round-40 commit (`db5af8e`) IS now pushed — origin is current through HEAD.
+Uncommitted from this session (verify with `git status --short`):
+- NEW: `src/lib/wiim/eq-response.ts`
+- NEW: `src/components/dashboard/eq-response-curve.tsx` + `_showa/` mirror
+- MOD: `src/lib/wiim/eq-constants.ts`
+- MOD: `src/components/dashboard/eq-card.tsx` + `_showa/` mirror
+- MOD: this handoff
+Stage with EXPLICIT paths (never `git add .` — `launch-dashboard.ps1` must stay
+untracked). All component pairs SHA-verified MATCH; all files bracket-balanced;
+container healthy on `39446`. Build always `docker compose up -d --build`
+(runs via WSL: `wsl -d Ubuntu -- bash -lc "cd /mnt/c/Users/mrthi/Wiim-Dashboard
+&& docker compose up -d --build"` — `docker` isn't on the Windows PATH).
 
 ## Round 40 — EQ response curve (APPROVED PLAN, build not started)
 

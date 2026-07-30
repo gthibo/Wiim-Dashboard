@@ -7,11 +7,12 @@ import * as SliderPrimitive from "@radix-ui/react-slider";
 import { ChevronDown, Check, Save, Trash2, Pencil, RotateCcw, SlidersVertical } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
+import { EqResponseCurve } from "./eq-response-curve";
 import { useToast } from "@/components/toast";
 import { useConfirm, usePrompt } from "@/components/modal";
 import { apiGet, apiSend, ApiError } from "@/lib/client/api";
 import { cn } from "@/lib/utils";
-import { GRAPHIC_GAIN, PEQ_RANGE, PEQ_MODES, PEQ_LETTERS } from "@/lib/wiim/eq-constants";
+import { GRAPHIC_GAIN, PEQ_RANGE, PEQ_MODES, PEQ_LETTERS, bandColor } from "@/lib/wiim/eq-constants";
 import type { EqOverview, EqType, ParametricBand, PeqChannel, PeqChannelMode } from "@/lib/wiim/types";
 
 /**
@@ -232,8 +233,19 @@ export function EqCard({ deviceId, initialSource }: { deviceId: string; initialS
         />
       </div>
 
-      {/* ── Body: graphic bank (re-skinned) / parametric table (deferred) ── */}
+      {/* ── Body: response curve + graphic bank / parametric table ──────── */}
       <div className={cn("transition-opacity", !enabled && "opacity-50")}>
+        <div className="relative z-10 px-6 pt-4">
+          {subTab === "graphic" ? (
+            <EqResponseCurve mode="graphic" graphicBands={st.graphic.bands} />
+          ) : (
+            <EqResponseCurve
+              mode="parametric"
+              parametricBands={st.parametric.bands}
+              activeChannel={activeChan}
+            />
+          )}
+        </div>
         {subTab === "graphic" ? (
           <GraphicPanel bands={st.graphic.bands} source={st.source} send={send} />
         ) : (
@@ -566,7 +578,10 @@ function PeqRow({
 
   return (
     <div className={cn("flex items-center gap-4", off && "opacity-45")}>
-      <span className="w-5 shrink-0 text-center font-sans text-xs font-semibold uppercase text-primary">
+      <span
+        className="w-5 shrink-0 text-center font-sans text-xs font-semibold uppercase"
+        style={{ color: off ? "hsl(var(--primary))" : bandColor(band.letter) }}
+      >
         {band.letter}
       </span>
 
