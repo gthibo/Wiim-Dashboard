@@ -1,22 +1,100 @@
 # Showa Hi-Fi Counter — Session Handoff
-*Updated end of session: July 27, 2026, through Round 39 (preset-art cache fix + README rewrites).
+*Updated end of session: July 30, 2026, through Round 40 (EQ response-curve — SCOPED, NOT YET BUILT).
 Supersedes all prior handoff content.*
 
 ## tl;dr for picking this back up
 
-Round 39 was a bug-fix + documentation session. A preset-art stale-cache bug
-was diagnosed and fixed (data layer only, no visual changes). Both READMEs
-were fully rewritten to reflect current app state. **No open visual or
-functional items remain.** Known deferred items are in `_showa/README.md`.
+Round 40 was a research + scoping session. **No code was written.** We
+investigated the rustywiim repo (ozbenh/rustywiim), confirmed its PEQ
+response-curve math is worth porting, read our live EQ code end-to-end, and
+produced a confirmed build plan for an EQ response-curve feature. **The build
+itself is the next session's job — everything below is ready to execute cold.**
 
 **What happened this session:**
-1. ~~Preset art stale-cache bug~~ — diagnosed and fixed. Confirmed live.
-2. ~~Root `README.md`~~ — full refresh (15 targeted changes against confirmed code/git state).
-3. ~~`_showa/README.md`~~ — complete rewrite to fresh reference-doc structure.
+1. Reviewed a WiiM-forum HTTP-API thread — useful confirmations (LED_SWITCH_SET,
+   seek, switchmode list) for the *Universal Remote* project, plus the UPnP
+   `GetInfoEx` reliability point. Nothing new for the dashboard itself.
+2. Cloned `ozbenh/rustywiim` (Rust/GTK). Its `src/ui/eq/parametric.rs`
+   `band_response()` is a clean, correct RBJ Audio-EQ-Cookbook biquad
+   magnitude implementation covering all our filter types — worth porting.
+3. Read our live EQ code (`src/lib/wiim/eq.ts`, `types.ts`, `eq-constants.ts`,
+   `src/components/dashboard/eq-card.tsx`). Confirmed: EQ is slider-only today,
+   no response curve anywhere. Data shapes port cleanly (see plan).
+4. Produced the build plan below, user-approved.
 
-**What's open:** Nothing blocking. See Known open items in `_showa/README.md`
-(mobile optimization, source/output panel texture, upstream sync monitoring,
-screenshot refresh).
+**What's open:** The EQ response-curve build (fully scoped below). Plus prior
+deferred items in `_showa/README.md` (mobile optimization, source/output panel
+texture, upstream sync monitoring, screenshot refresh) and the unpushed
+handoff commit noted below.
+
+## Round 40 — EQ response curve (APPROVED PLAN, build not started)
+
+**Decisions locked with user:** curve-first (read-only, driven by existing
+sliders); draggable nodes deferred to a later round; render a curve for BOTH
+parametric AND graphic modes; graphic curve = monotone/Catmull-Rom spline
+through the 10 fixed ISO points in log-freq space (not straight segments).
+
+### New file — `src/lib/wiim/eq-response.ts` (SRC-ONLY, no mirror — pure logic)
+Port of rustywiim math onto our types. Pure functions, no React/server-only.
+- `bandResponseDb(band: ParametricBand, evalFreq): number` — RBJ biquad
+  magnitude. Our `mode` numbers map direct: −1/Off + unknown → 0 (flat);
+  1/Peak, 0/LowShelf, 2/HighShelf = gain-driven cookbook forms WITH the
+  `|gain|<0.001 → 0` early-out; 3/LowPass, 5/HighPass = gain-INDEPENDENT
+  cutoff forms, NO early-out (rustywiim's fix — real Ultra captures show
+  gain 0 on these; they have no gain field in our data model too).
+  Hardcode sample rate 48000.
+- `parametricCurve(bands, nPoints)` — sum bandResponseDb across bands at each
+  log-spaced freq. Key off the UI band set (a–j / `PEQ_LETTERS`), NOT a–l
+  (`PEQ_LETTERS_ALL`) — k/l would contribute invisibly.
+- `graphicCurve(bands: GraphicBand[], nPoints)` — spline through the 10
+  fixed ISO centers (31…16k, in `GRAPHIC_BANDS`), gain-only. Not a biquad sum.
+- Coord helpers: `freqToX`/`xToFreq` (nat-log interp over `PEQ_RANGE`
+  20–20000), `dbToY`/`yToDb` (±12 from `PEQ_RANGE`). Land the `xToFreq`/
+  `yToDb` INVERSES now even though curve-first doesn't use them — the nodes
+  follow-up needs them, costs nothing here.
+
+### New component — `eq-response-curve.tsx` (DUAL-WRITE, SHA256-verify)
+`src/components/dashboard/` + `_showa/components/dashboard/`. Client component.
+- SVG: log-freq grid (verticals 20/50/100/200/500/1k/2k/5k/10k/20k), dB lines
+  (+12/+6/0/−6/−12). FACEPLATE tokens, NOT rustywiim's dark theme — recessed
+  `--static` plot area, grid low-opacity faceplate, line in rust `--primary`.
+- Parametric: one filled area + line per rendered channel. L/R mode draws BOTH
+  `bands.left` + `bands.right` (both already in `st.parametric.bands` at render
+  — no fetch change); inactive dimmed, active full-opacity line on top. Colored
+  band-center dots (10-color set tuned to our palette) STATIC this round.
+- Graphic: single spline curve from the 10 gains.
+
+### Integration — `eq-card.tsx` (DUAL-WRITE)
+Insert curve panel inside existing `.glass` panel, above the band-row bank.
+Reads state the component ALREADY computes (`peqBands`, `activeChan`,
+`st.parametric.bands`, `st.graphic.bands`). No new SWR keys, no data-layer
+fetch changes. Parametric curve on parametric subtab, graphic on graphic subtab.
+
+### Deferred to round 2 (nodes): all drag/hit-testing; `xToFreq`/`yToDb`
+inverses land in round 1 but go unused until then.
+
+### Reference: rustywiim math is at `/tmp/rustywiim` in the Round-40 session's
+sandbox (gone now) — re-clone `https://github.com/ozbenh/rustywiim` and read
+`src/ui/eq/parametric.rs` lines ~236–314 (`band_response`, `freq_to_x`,
+`db_to_y`, `x_to_freq`) if you need the source forms again.
+
+### STANDING NOTE — rustywiim as an ongoing enhancement source
+`ozbenh/rustywiim` is a separate Rust/GTK WiiM client, actively developed, that
+has independently solved a lot of the same problems this app faces. The EQ
+response curve (Round 40) is the FIRST feature mined from it, not the last —
+treat the repo as a recurring well to draw from, and periodically re-scan it for
+features/functionality worth adapting to the Showa dashboard. Its `src/ui/`
+tree (`eq/`, `views/`, `device_window/`, presets, kiosk, playback) is the place
+to browse. Caveats when porting from it: (1) it's Rust computing Cairo paths,
+not JS/SVG — only the *logic/math* ports, never the drawing code; (2) it has its
+own theme system (system/modern/wood/dark) — always re-skin to our faceplate
+tokens, never lift its visual styling; (3) our dual-write + SHA256 discipline
+and data-layer/`src`-only split still govern anything adapted from it. When a
+new feature is pulled from rustywiim, log it here so the provenance stays clear.
+
+### Git note: HEAD `db5af8e` ("update session handoff 7-27-26") is 1 commit
+AHEAD of `origin/main` — unpushed. Round 38 (`f23cd1d`) and the readme/css
+commit (`213620e`) ARE on origin. Push `db5af8e` when ready (+ this update).
 
 ## Round 38 — Palette retune + panel heading consistency
 
