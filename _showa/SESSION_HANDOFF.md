@@ -1,15 +1,117 @@
 # Showa Hi-Fi Counter — Session Handoff
-*Updated end of session: July 30, 2026, through Round 42 (EQ response-curve BUILT + per-band colour + letter colour-match — LIVE, confirmed good, not yet committed).
+*Updated end of session: September 10, 2026, through Round 43 (Plex/DLNA scrobbler fix — upstream 2840860 cherry-picked — LIVE, container healthy).
 Supersedes all prior handoff content.*
 
 ## tl;dr for picking this back up
 
-Rounds 41–42 BUILT the EQ response-curve feature that Round 40 scoped, then
-extended it with per-band colour. All live and confirmed good by Greg. **Not
-yet committed** — six code files + this handoff are staged-and-ready; commit is
-the only remaining step (see "Git state" at the end of the Round 41–42 entry).
+Round 43 cherry-picked upstream `2840860` into `src/lib/scrobble/`. Plex
+casts on the Ultra now scrobble to Last.fm. Container rebuilt and healthy.
+HEAD is `70b77de` with a clean working tree. Next: recon-only round to map
+all upstream v0.3.12–v0.3.17 changes before writing Round 44+ specs.
 
-## Round 41–42 — EQ response curve: build + per-band colour (LIVE, uncommitted)
+## Round 43 — Plex/DLNA scrobbler fix (upstream 2840860)
+
+**Objective:** make the background Last.fm scrobbler use GetInfoEx transport
+state for Plex/DLNA cast sources, fixing silent data-loss (scrobbler was
+calling `fetchPlayerStatus` whose `status` sticks on "stop" for cast pushes
+— same bug the dashboard UI fixed in Round 35; the scrobbler never followed).
+
+### Investigation (pre-code)
+
+`git fetch upstream` pulled v0.3.12–v0.3.17. Relevant commits in that range
+for `src/lib/scrobble/` and `src/lib/wiim/`:
+
+| SHA | Description |
+|---|---|
+| `2840860` | fix(scrobble): scrobble cast sources, never submit sub-30s tracks |
+| `7d99a97` | feat(artwork): opt-in trusted artwork hosts for LAN media servers |
+| `0472b2b` | feat(now-playing): read format facts from DIDL-Lite for DLNA senders |
+| `6e5c6af` | fix(source): USB-drive/CD as media not line input |
+| `bea000f` | fix(now-playing): timing unit decided once per response |
+| `9ca026e` | feat(eq): read parametric band count from device |
+| `c68c950` | feat(eq,output): Headphone EQ + amp Speaker output |
+| `e0db2ee` | fix(output): USB output via live sound-card roster |
+| `2b78de1` | feat(output): simultaneous outputs in Output card |
+| `3107749` | feat(eq): acoustic-capability detection + LP/HP PEQ filters |
+| `e61b4b9` | fix(output): show & select USB output |
+
+`2840860` was the only commit touching `src/lib/scrobble/` in the whole
+range, and it does NOT touch `snapshot.ts` or any FORK DELTA file.
+
+Our fork already had `fetchGetInfoEx` exported from `upnp.ts` with exactly
+the required shape. Diff context lines matched our `poller.ts` exactly.
+**Verdict: clean cherry-pick, zero conflicts expected (and confirmed).**
+
+### What was picked
+
+**`git cherry-pick --no-commit 2840860`** — one CHANGELOG.md conflict
+resolved by restoring our version (`git checkout HEAD -- CHANGELOG.md`).
+Two scrobbler files staged and committed as `70b77de`:
+
+**`src/lib/scrobble/eligibility.ts`** (new, src-only, no `_showa/` mirror):
+- Pure function `isScrobbleEligible({ duration, position, playedSec })`
+- Extracts eligibility logic from `poller.ts` for independent testability
+- Fixes sub-30s bug: a known duration ≤ 30s now correctly returns `false`
+  instead of falling through to the 90s wall-clock branch
+
+**`src/lib/scrobble/poller.ts`** (modified, src-only, no `_showa/` mirror):
+- Added imports: `fetchGetInfoEx` from `../wiim/upnp`, `isScrobbleEligible`
+  from `./eligibility`
+- In `processDevice()`, after `fetchPlayerStatus`:
+  ```
+  const info = p.sourceKey === "wifi"
+    ? await fetchGetInfoEx(host).catch(() => null)
+    : null;
+  if (info?.state) p.state = info.state;
+  if (p.position <= 0 && info && info.position > 0) p.position = info.position;
+  if (p.duration <= 0 && info && info.duration > 0) p.duration = info.duration;
+  ```
+  Fault-tolerant (`.catch(() => null)`), gated on `sourceKey === "wifi"` —
+  identical pattern to snapshot.ts transport gate from Round 35.
+- Metadata fallback: `p.title ?? info?.title ?? null` (picks up cast metadata
+  where httpapi returns nothing)
+- Eligibility: replaced inline logic with `isScrobbleEligible()` call
+
+### Build + verification
+
+`docker compose up -d --build` completed, fresh image `2026-09-10`. Container
+healthy at `:39446`. Scrobbler logs confirmed:
+```
+[scrobbler] instrumentation register() (nodejs)
+[scrobbler] starting — polling every 15s
+```
+
+**Hardware test (Greg to complete):**
+1. Cast a track from Plex to Ultra (`192.168.1.102`)
+2. `docker compose logs -f wiim-dashboard | grep -i scrobble`
+3. Confirm `now playing →` fires within one poll (≤15s)
+4. Let track play past eligibility threshold (half-length or 4 min)
+5. Confirm `scrobbled ✓` in logs; verify on Last.fm profile
+6. Regression: cast Spotify or play a preset — confirm still scrobbles
+
+### Git state
+
+HEAD: `70b77de` ("fix(scrobble): scrobble cast/DLNA sources via GetInfoEx
+transport (upstream 2840860)"). Working tree clean. Backup branch:
+`backup-main-pre-round43` at `f97e26b`.
+
+Fork is now current through **upstream v0.3.17 (scrobbler fix only)**.
+Items from v0.3.12–v0.3.17 intentionally skipped this round (queued for
+Round 44+ after recon): DIDL-Lite bitrate (`0472b2b`), artwork trusted-hosts
+(`7d99a97`), 12-band EQ + LP/HP + GetAcousticCapability (EQ cluster),
+USB-drive source distinction, microseconds unit detection, and others.
+See the upstream table above for the full list.
+
+### Deferred items for Round 44+
+
+Plan: next session is a **recon-only round** — `git log v0.3.11..v0.3.17
+--stat` on all relevant files, identify SHAs, grep FORK DELTA blocks, report
+as a table (item × SHA × files × conflict risk × dependencies). Short Opus
+check-in after that to regroup rounds. Then Sonnet writes 44+ specs.
+
+**Do NOT start deferred items until recon completes and Opus signs off.**
+
+## Round 41–42 — EQ response curve: build + per-band colour (COMMITTED — f97e26b)
 
 Three sub-rounds in one session. Everything below is on disk and running in the
 container (healthy); nothing is committed to git yet.
