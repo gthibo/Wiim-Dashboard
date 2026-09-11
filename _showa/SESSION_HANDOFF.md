@@ -1,13 +1,50 @@
 # Showa Hi-Fi Counter — Session Handoff
-*Updated end of session: September 10, 2026, through Round 43 (Plex/DLNA scrobbler fix — upstream 2840860 cherry-picked — LIVE, container healthy).
+*Updated end of session: September 11, 2026, through Round 44 (upstream v0.3.11..v0.3.17 recon — report written, no code changed).
 Supersedes all prior handoff content.*
 
 ## tl;dr for picking this back up
 
-Round 43 cherry-picked upstream `2840860` into `src/lib/scrobble/`. Plex
-casts on the Ultra now scrobble to Last.fm. Container rebuilt and healthy.
-HEAD is `70b77de` with a clean working tree. Next: recon-only round to map
-all upstream v0.3.12–v0.3.17 changes before writing Round 44+ specs.
+Round 44 recon complete. Report: `C:\Users\mrthi\Documents\WIIM\round44-upstream-recon-report.md`.
+No code changes this session. Container still healthy from Round 43 build.
+HEAD is `72882af` ("docs: Round 44 upstream recon report — v0.3.11..v0.3.17 mapped"),
+4 commits ahead of `origin/main`. Clean working tree.
+Next: **Opus check-in** to regroup rounds based on the recon report. Then Sonnet
+writes Round 44a+ specs using `round43-plex-scrobbler-spec.md` as the shape template.
+
+## Round 44 — Upstream v0.3.11..v0.3.17 recon (recon-only, no code)
+
+**Objective:** map every commit in v0.3.11..v0.3.17 to files touched, fork
+conflict risk, and dependencies. Input for Opus round-regrouping.
+
+**Report:** `C:\Users\mrthi\Documents\WIIM\round44-upstream-recon-report.md`
+(outside repo, not tracked). Covers all 15 non-docs, non-OOS commits.
+
+### Headline findings
+
+- **15 commits to analyze** after dropping docs/release/OOS (proxmox, HA add-on).
+  Risk breakdown: 1 clean, 7 minor, 5 heavy, 2 confirmed skip.
+- **`c68c950` is the gating commit.** A 20-file omnibus that bundles wanted
+  device-quirk fixes (UDisk source key, timing decode, actualQuality,
+  STATION-NETWORK mode fix, fetchSoundCard upgrade, `un_known` art fix) with
+  skipped features (Headphone EQ, amp Speaker output). Cannot cherry-pick.
+  Must be decomposed; every downstream snapshot-batch commit depends on it.
+- **Memory groupings need revision.** "Transport-controls-per-source" and
+  "phantom input cross-check" are NOT standalone SHAs — both are sub-features
+  inside `c68c950`. `COOKIE_SECURE` fix not found in this range.
+- **New un-grouped commits found:** `5deb24e` (security headers — clean),
+  `8fe1f64` (lyrics timing nudge — standalone), `e7b55f2` (EQ Off visual —
+  EQ cluster, depends on `3107749`). All three missing from prior memory.
+- **`7d99a97` allowlist supersedes `isPlexArtUrl` shim** — if Greg adds his
+  Plex server to Settings → Artwork hosts, the shim retires. Opus decides.
+- **Proposed micro-batch (first):** `5deb24e` + `8fe1f64` + `e61b4b9` — all
+  clean/minor, no c68c950 dependency, can land before the hard work begins.
+
+### Next step
+
+Opus check-in to regroup rounds. Do NOT write 44a+ specs until Opus signs off.
+Sonnet writes specs using `round43-plex-scrobbler-spec.md` as shape template.
+
+---
 
 ## Round 43 — Plex/DLNA scrobbler fix (upstream 2840860)
 
