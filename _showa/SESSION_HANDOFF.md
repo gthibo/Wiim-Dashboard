@@ -81,13 +81,19 @@ healthy at `:39446`. Scrobbler logs confirmed:
 [scrobbler] starting — polling every 15s
 ```
 
-**Hardware test (Greg to complete):**
-1. Cast a track from Plex to Ultra (`192.168.1.102`)
-2. `docker compose logs -f wiim-dashboard | grep -i scrobble`
-3. Confirm `now playing →` fires within one poll (≤15s)
-4. Let track play past eligibility threshold (half-length or 4 min)
-5. Confirm `scrobbled ✓` in logs; verify on Last.fm profile
-6. Regression: cast Spotify or play a preset — confirm still scrobbles
+**Hardware test: ✓ PASSED (September 11, 2026)**
+
+Cast "Strange Cargo — Million Town (K&D Session™)" from Plex to Ultra.
+Log output confirmed:
+```
+[scrobbler] now playing → Strange Cargo — Million Town (K&D Session™)
+[scrobbler] scrobbled ✓ Strange Cargo — Million Town (K&D Session™)
+```
+`now playing →` fired on the first poll; `scrobbled ✓` fired after the
+eligibility threshold. First confirmed Plex scrobble on this setup.
+
+Regression test (Spotify / presets) not yet run — low risk given the
+`sourceKey === "wifi"` gate (non-cast sources take a different path).
 
 ### Git state
 
