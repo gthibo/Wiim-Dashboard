@@ -6,8 +6,8 @@ Supersedes all prior handoff content.*
 
 Round 44 recon complete. Report: `C:\Users\mrthi\Documents\WIIM\round44-upstream-recon-report.md`.
 No code changes this session. Container still healthy from Round 43 build.
-HEAD is `72882af` ("docs: Round 44 upstream recon report — v0.3.11..v0.3.17 mapped"),
-4 commits ahead of `origin/main`. Clean working tree.
+HEAD is `a676eb9` + fixup (run `git log --oneline -1` to confirm — amend
+renames hashes). Expect 4 commits ahead of `origin/main`, clean tree.
 Next: **Opus check-in** to regroup rounds based on the recon report. Then Sonnet
 writes Round 44a+ specs using `round43-plex-scrobbler-spec.md` as the shape template.
 
