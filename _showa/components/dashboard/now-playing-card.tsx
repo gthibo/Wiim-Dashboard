@@ -36,6 +36,7 @@ import { QualityPill } from "./quality-pill";
 import { KioskView } from "./kiosk-view";
 import { LyricsView } from "./lyrics-view";
 import { SleepButton } from "./sleep-button";
+import { AlarmButton } from "./alarm-button";
 import { extractColor, type RGB } from "@/lib/client/use-album-color";
 import type { PlayerStatus, StreamService, AudioFormat, LyricLine } from "@/lib/wiim/types";
 
@@ -78,7 +79,6 @@ function CubbyArt({
   lyrics,
   lyricsLoading,
   pos,
-  hasDuration,
   onSeek,
 }: {
   view: "cover" | "vinyl" | "lyrics";
@@ -92,7 +92,6 @@ function CubbyArt({
   lyrics: { synced: LyricLine[] | null; plain: string | null } | null;
   lyricsLoading: boolean;
   pos: number;
-  hasDuration: boolean;
   onSeek: (t: number) => void;
 }) {
   return (
@@ -237,9 +236,9 @@ function CubbyArt({
           aria-hidden
           className="pointer-events-none absolute select-none"
           style={{
-            top: "6%",
+            top: "5%",
             right: "4.4%",
-            width: "13%",
+            width: "16%",
             filter: "drop-shadow(-3px 6px 10px hsl(0 0% 0% / 0.65))",
             zIndex: 5,
           }}
@@ -516,7 +515,6 @@ export function NowPlayingCard({
             lyrics={lyrics}
             lyricsLoading={lyricsLoading}
             pos={pos}
-            hasDuration={hasDuration}
             onSeek={(t) => {
               const v = Math.round(t);
               setPos(v);
@@ -585,7 +583,7 @@ export function NowPlayingCard({
                   onClick={() => setView("lyrics")}
                   aria-label="Lyrics view"
                   aria-pressed={view === "lyrics"}
-                  className={cn(
+                    className={cn(
                       "focus-ring grid size-7 place-items-center rounded-full transition",
                       view === "lyrics"
                         ? "text-[hsl(var(--faceplate)/0.9)]"
@@ -692,11 +690,18 @@ export function NowPlayingCard({
               top-right above the title, matching the mockup. */}
           <div className="mb-1 flex items-center">
             <div className="ml-auto">
-              <SleepButton
-                deviceId={deviceId}
-                expiresAt={sleepExpiresAt ?? null}
-                onChanged={onChanged}
-              />
+              <div className="flex items-center gap-1">
+                <SleepButton
+                  deviceId={deviceId}
+                  expiresAt={sleepExpiresAt ?? null}
+                  onChanged={onChanged}
+                />
+                <AlarmButton
+                  deviceId={deviceId}
+                  firesAt={null}
+                  onChanged={onChanged}
+                />
+              </div>
             </div>
           </div>
           <div className="flex items-center gap-3">
