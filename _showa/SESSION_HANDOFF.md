@@ -1,109 +1,150 @@
 # Showa Hi-Fi Counter — Session Handoff
 
-*Updated end of session: September 14, 2026, after merging the 8fe1f64 lyrics-nudge manual port and confirming live UX. Supersedes all prior handoff content.*
+*Updated end of session: September 14, 2026 (second session that day), after merging the e61b4b9 USB-output manual port, pushing main, and confirming live UX on the Ultra. Supersedes all prior handoff content.*
 
 ## tl;dr for picking this back up
 
-The 8fe1f64 lyrics-nudge manual port is merged and live. HEAD on `main` is
-`660f929` (merge commit; parents `b364dc6` + `bcc6d23`). Container is
-running fresh image `sha256:0e270e45…`, healthy, per-track `−`/`+` timing
-nudge confirmed working in-browser by Greg. Working tree clean.
+The e61b4b9 USB-output manual port is merged, pushed, and live. HEAD on
+`main` is `61e3a43` (merge commit; parents `10f69a5` + `3ec1233`).
+Working tree clean. `origin/main` caught up (no unpushed commits).
+Container running fresh image built with `--no-cache`, healthy. Greg
+confirmed the USB entry visible in the Output card against a real Ultra
+with a USB DAC connected.
 
-**Main is 11 commits ahead of `origin/main`** — not yet pushed. Push is
-in the forward-scope list, but wasn't executed this session.
+Second Hermes calibration loop closed on `deepseek-v4-flash` at Med
+reasoning — "adequate" verdict for the second time, on strictly-easier
+work than the lyrics-nudge port. Consistent signal that V4 Flash Med has
+headroom on mechanical ports of this size class.
 
-Next: pick from the forward-scope list below. `e61b4b9` (USB output) is
-the next upstream-pick candidate on the Round 44 shortlist.
+Next: pick from the forward-scope list below. The natural next port
+target is the follow-on USB output work upstream — `available` /
+`usbDac` / `outputNames` / `coexist` — that layered on after `e61b4b9`.
 
 ## Live git state to verify at session open
 
     git log --oneline -5 main
     # expect:
+    # 61e3a43 Merge hermes/e61b4b9-usb-output into main
+    # 3ec1233 feat(output): show & select USB output in the Output card (manual port of upstream e61b4b9)
+    # 10f69a5 git add _showa/SESSION_HANDOFF.md _showa/README.md && git commit -m "docs: session close 2026-09-14"
     # 660f929 Merge hermes/8fe1f64-lyrics-nudge into main
     # bcc6d23 feat(lyrics): per-track timing nudge (manual port of upstream 8fe1f64)
-    # b364dc6 Merge hermes/reconcile-now-playing-card-mirror into main
-    # 02c5772 chore(_showa): reconcile now-playing-card.tsx mirror with src/
-    # d77cb86 Merge cherry-pick of upstream 5deb24e (COOKIE_SECURE/HSTS…) via first Hermes calibration loop
 
     git status
-    # expect: On branch main; working tree clean; ahead of origin/main by 11 commits
+    # expect: On branch main; working tree clean; up to date with origin/main
 
-Confirm the merge commit `660f929` exists and the tree is clean before
+Confirm the merge commit `61e3a43` exists and the tree is clean before
 starting anything.
 
-## Recent activity (post Round 44 recon)
+## Recent activity (this session)
 
-### First Hermes calibration loop — upstream `5deb24e` cherry-pick
+### Backup gap closed — push `main` to `origin/main`
 
-Commit: `9b98b9f` (`fix(security-headers): follow the request scheme for
-HSTS + CSP upgrade (#12)`), merged as `d77cb86`. First live use of
-Hermes as executor after Round 44 recon designated it. Small,
-well-scoped security-headers fix. Loop closed with a `-review.md` and
-archive move.
+12 unpushed commits (accumulated since Round 43) pushed cleanly.
+`10f69a5..61e3a43` now on `origin/main` at session end.
 
-### Reconcile-now-playing-card-mirror pass
+Learned: `git push` from within WSL hangs on the username prompt
+(no credential helper configured in the WSL git); run from Windows
+PowerShell where Git Credential Manager (`credential.helper = manager`)
+is set up and cached. Worth codifying in the preamble if this recurs.
 
-`_showa/components/dashboard/now-playing-card.tsx` had drifted from
-`src/` — Hermes reconciled the mirror byte-for-byte. Commits `02c5772`
-(reconcile) + merge `b364dc6`. Cleared the way for the lyrics-nudge
-port's dual-write.
+### e61b4b9 USB-output manual port (this session's main work)
 
-### 8fe1f64 lyrics-nudge manual port (this session's close)
+Recon → plan → Hermes → runtime-confirm → merge → push, one session.
+Manual port of upstream `e61b4b9` ("show & select USB output in the
+Output card", GitHub issue #11).
 
-Manual port of upstream `8fe1f64` (per-track lyrics timing nudge:
-`−`/`+` buttons, localStorage per-track offset, ±10s clamp, reset). See:
+- Plan / done: `C:\Users\mrthi\Documents\WIIM\archive\2026-09-14-e61b4b9-usb-output.done.md`
+- Port commit: `3ec1233`, merged as `61e3a43`.
+- Three src/ files, +10/−1: `src/lib/wiim/constants.ts` (OUTPUTS gains
+  id 8 = USB), `src/lib/wiim/capabilities.ts` (4-line `curHw` fallback
+  inside `outputSwitch` block), `src/components/dashboard/output-card.tsx`
+  (`const ids` binding folds live current output into render list).
+- No `_showa/` mirror needed — `output-card.tsx` is shared UI without a
+  Showa fork; the other two are data-layer (src/-only by policy).
 
-- Plan / approved: `C:\Users\mrthi\Documents\WIIM\archive\2026-09-11-8fe1f64-lyrics-nudge-manual-port.done.md`
-- Review: `C:\Users\mrthi\Documents\WIIM\archive\2026-09-11-8fe1f64-lyrics-nudge-manual-port-review.md`
+**Deviation of note:** Hermes flagged a planning-side bug in the task-4
+verification guard. The plan called for
+`git diff -U0 <file> | grep -c "^+"` to equal 5 and `"^-"` to equal 1
+(net +5/−1 on the file). Those grep patterns also match `git diff`'s
+`+++ b/…` / `--- a/…` file-header lines, so the actual counts came back
+6/2. Hermes correctly re-ran with `grep -c '^+[^+]'` / `'^-[^-]'` to
+exclude headers, got the intended 5/1, and reported the mis-specified
+guard as a deviation. `git show --stat` also confirmed 10 insertions,
+1 deletion, which was the plan's real intent. Fold this into planning
+discipline: for line-count guards, use content-only grep patterns, or
+better, use `git show --stat` / `git diff --numstat` on the specific
+file. Filed under forward-scope preamble amendments.
 
-Commit `bcc6d23`, merged as `660f929` this session. Six files touched
-(3 src/ + 3 _showa/ under `components/dashboard/`), SHA256 mirror parity
-verified on all three pairs.
+**Build note:** `docker compose up -d --build` from Hermes ran cleanly
+without CACHED builder layers this time — no `--no-cache` needed. The
+"CACHED = didn't compile" trap remains a known hazard but did not
+trigger here.
 
-**Deviation of note:** Hermes hit `TS2552` on `lyricsKey` at
-`now-playing-card.tsx:133:27` — `<LyricsView>` at that line sits inside
-module-level `CubbyArt`, not `NowPlayingCard`'s body, so the fork's
-`lyricsKey` didn't reach it. Resolution mirrored the `KioskView`
-triple-thread pattern the plan already prescribed. This is the same
-scope-vs-line-number lesson filed in `ways-of-working.md` under
-"Planning discipline — insertion-point maps." Typecheck caught it
-cleanly; the plan → hand-back → mechanical-fix path worked as designed.
+### Second Hermes calibration loop
 
-**Build note:** first `docker compose up -d --build` showed
-`#19 [builder 5/5] RUN npm run build` **CACHED** — did not recompile.
-Reran with the Compose v5 split form:
+Model: `deepseek-v4-flash` (Med reasoning) via opencode-zen. Same model
+as the first (lyrics-nudge) loop; second data point at "adequate."
 
-    docker compose build --no-cache && docker compose up -d
+Verdict: adequate with visible headroom. All 3 anchor greps landed
+1/1/1; guard counts 1/2 / 1/1/3 / 1/1/0 as specified; typecheck +
+lint exit 0 (one pre-existing unrelated warning); single commit
+byte-for-byte per the plan's heredoc; no step-up triggers fired.
 
-Fresh image `sha256:0e270e45…` confirmed. This is the same
-"CACHED = didn't compile" trap called out in `ways-of-working.md`; the
-split form is worth codifying in the preamble (see forward scope).
+Calibration state: "V4 Flash Med, adequate on mechanical ports of
+≤~300 lines / ≤6 files" is a stable read. Any future calibration
+downward should be on a genuinely trivial job (comment-only edit,
+single typo fix) — not another mechanical port, or you can't tell
+whether success proves capability or task-easiness.
+
+Naming note discovered mid-session: plan template's
+`tier: flash | med | pro` ladder is *not* the same as opencode-zen
+model family names. `tier: med` maps to `deepseek-v4-flash` at Med
+reasoning; `tier: flash` presumably maps to a lighter tier below
+that. If a fresh planner instance mixes these up, the confusion is
+predictable.
 
 ## Forward scope — standing candidates
 
 In roughly ascending order of "real work":
 
-1. **Push `main` to `origin/main`.** 11 commits ahead is a natural
-   boundary; every closed round since Round 43 is unpushed.
-2. **Preamble amendments** in `C:\Users\mrthi\Documents\WIIM\workflow.md`
-   (and/or per-project preamble):
+1. **Preamble amendments** in `C:\Users\mrthi\Documents\WIIM\workflow.md`
+   (and/or per-project preamble). Batchable session-close hygiene:
    - Docker Compose v5 quirk: `--no-cache` not accepted on
      `up --build`; use `build --no-cache && up -d`.
    - WSL git identity note (`Greg T <me@gregthibodeaux.com>` is the
      standing committer via repo-local WSL config).
-3. **`hermes/*` branch retention policy.** Three merged Hermes
-   branches now exist locally (`hermes/cookie-secure-cherry-pick`,
+   - `git push` runs from Windows PowerShell (GCM cached), not WSL
+     (no credential helper) — codify if it bites again.
+   - Line-count verification guards: use `grep -c '^+[^+]'` /
+     `'^-[^-]'` or `git show --stat`, not raw `^+` / `^-` which
+     match diff headers.
+   - Plan-template `tier` ladder ≠ opencode-zen model family names;
+     clarify what `tier: flash` maps to in your Hermes config.
+   - Convention: draft plans live in `WIIM\tasks\`, archived
+     `.done.md` in `WIIM\archive\`.
+2. **`hermes/*` branch retention policy.** Four merged Hermes branches
+   now exist locally (`hermes/cookie-secure-cherry-pick`,
    `hermes/reconcile-now-playing-card-mirror`,
-   `hermes/8fe1f64-lyrics-nudge`). Decide: delete on merge, keep N,
-   or archive elsewhere. One-line addition to the preamble.
-4. **Orphan `_showa/components/now-playing-card.tsx`** — stale
+   `hermes/8fe1f64-lyrics-nudge`, `hermes/e61b4b9-usb-output`).
+   Decide: delete on merge, keep N, or archive elsewhere. One-line
+   addition to the preamble.
+3. **Orphan `_showa/components/now-playing-card.tsx`** — stale
    duplicate at `_showa/components/` (no `/dashboard/` subdir).
    Verify orphan status and delete if confirmed unreferenced.
-5. **`e61b4b9` (USB output)** — next upstream-pick candidate on the
-   Round 44 shortlist. Needs its own recon pass before spec.
-6. **Round 44 report's 4-item corrections list** — noted at the end
+4. **e61b4b9 follow-on USB work** — natural next port target now
+   that `#11` is landed. Upstream layered onto the same three files
+   after `e61b4b9`:
+   - `available` roster from `getSoundCardModeSupportList`
+   - `usbDac` name label (shows the connected DAC's name in place of
+     "USB")
+   - `outputNames` amp-speaker relabelling
+   - `coexist` sub-line ("Also playing through X + Y")
+   Needs its own recon pass to unpack which upstream commits carry
+   which change, and decide whether to port as one round or split.
+5. **Round 44 report's 4-item corrections list** — noted at the end
    of the recon report; small factual fixes.
-7. **Port `39446 → 0.0.0.0` binding question** — deferred item from
+6. **Port `39446 → 0.0.0.0` binding question** — deferred item from
    the 20260913-end handoff about container network exposure.
 
 ## Canonical reference documents
@@ -117,6 +158,8 @@ Not tracked in this repo, don't get overwritten by round work:
   contract, file-status transitions, preamble carrier.
 - `C:\Users\mrthi\Documents\WIIM\templates\plan-template.md` — Hermes
   task plan template.
+- `C:\Users\mrthi\Documents\WIIM\tasks\` — drafts + approved plans
+  in flight.
 - `C:\Users\mrthi\Documents\WIIM\archive\` — closed `.done.md` +
   `-review.md` pairs, most recent at top.
 
