@@ -138,7 +138,7 @@ Page shell. `max-w-[78rem]`. Sub-out panel full-width in the grid. `activePreset
 Added `"vendor"` case to the Radio-icon fallback so real vendor-reported names (Plex, etc.) get a distinct treatment from generic "network" streams.
 
 ### `src/components/dashboard/lyrics-view.tsx` + `_showa/components/dashboard/lyrics-view.tsx`
-Container resized to `size-[19rem]`, border radius removed. First staged in Round 26.
+Container resized to `size-[19rem]`, border radius removed. First staged in Round 26. Per-track timing nudge added via 8fe1f64 manual port (post Round 44): `−`/`+` `OffsetButton`s persist a per-`trackKey` offset in localStorage under `OFFSET_KEY`, clamp to ±10s, reset per track. `trackKey` threaded from `NowPlayingCard` through `CubbyArt` and `KioskView` as `lyricsKey`.
 
 ---
 
@@ -244,3 +244,13 @@ These are genuinely open — not cleared bugs or deferred-then-done items.
 **Round 36–37:** Upstream cherry-picks v0.3.8–v0.3.11 (loop-mode fix, GetInfoEx transport improvements, OEM source fallback via PlayType/PlayMedium). Multiroom fixes (role detection, group mute, group volume, slave art for Plex/Spotify). ESLint added (flat config). Preset-highlight bug fixed (per-device leak, never-highlights). PWA install fix. App footer URL fix.
 
 **Round 38:** Palette retune locked — `--faceplate` → `hsl(29 20% 62%)` (`#B19D8B`), `--primary` (rust) → `hsl(17 77% 44%)` (`#C64C1A`), plus all derived tokens shifted proportionally. Panel heading consistency pass: `font-display text-base uppercase tracking-[0.15em]` applied uniformly across all panel headers.
+
+**Round 43:** Plex/DLNA scrobbler eligibility fix — cherry-picked upstream `2840860` into `src/lib/scrobble/`, creating `eligibility.ts` and modifying `poller.ts`. Scrobbler logs confirm 15-second polling. Data layer only, no `_showa/` mirror.
+
+**Round 44:** Upstream `v0.3.11..v0.3.17` recon-only pass. Report written to `C:\Users\mrthi\Documents\WIIM\round44-upstream-recon-report.md` (15 commits analyzed, `c68c950` identified as gating omnibus). No code changes. Introduced Hermes as flash-tier executor (deepseek-v4-flash / glm-5.3-flash via OpenCode Zen), coordinated with Opus through `.plan.md` / `.approved.md` / `.done.md` files in `C:\Users\mrthi\Documents\WIIM\`.
+
+**Post Round 44 — first Hermes calibration loop:** Cherry-picked upstream `5deb24e` (COOKIE_SECURE / HSTS follow-request-scheme fix) via Hermes; landed as PR #12 (`9b98b9f`), merged as `d77cb86`.
+
+**Post Round 44 — mirror reconcile:** `_showa/components/dashboard/now-playing-card.tsx` had drifted from `src/`; Hermes reconciled byte-for-byte (`02c5772`, merged as `b364dc6`).
+
+**Post Round 44 — 8fe1f64 lyrics-nudge manual port:** Per-track timing nudge (`−`/`+` buttons, localStorage per-track offset, ±10s clamp, reset) hand-ported from upstream `8fe1f64` (fork had visual customizations blocking clean cherry-pick). Six files touched (3 src/ + 3 _showa/), SHA256 mirror parity verified. `bcc6d23`, merged as `660f929`. Live UX confirmed.
