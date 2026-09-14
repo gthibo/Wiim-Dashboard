@@ -78,6 +78,7 @@ function CubbyArt({
   onColor,
   lyrics,
   lyricsLoading,
+  lyricsKey,
   pos,
   onSeek,
 }: {
@@ -91,6 +92,7 @@ function CubbyArt({
   onColor: (c: RGB | null) => void;
   lyrics: { synced: LyricLine[] | null; plain: string | null } | null;
   lyricsLoading: boolean;
+  lyricsKey: string | null;
   pos: number;
   onSeek: (t: number) => void;
 }) {
@@ -130,6 +132,7 @@ function CubbyArt({
                 plain={lyrics?.plain ?? null}
                 position={pos}
                 loading={lyricsLoading}
+                trackKey={lyricsKey}
                 onSeek={onSeek}
               />
             </div>
@@ -388,6 +391,10 @@ export function NowPlayingCard({
       });
   }, [player.title, player.artist, canLove]);
 
+  // Identifies the track for the per-track lyric-timing nudge (localStorage).
+  const lyricsKey =
+    player.artist && player.title ? `${player.artist}|${player.title}`.toLowerCase() : null;
+
   // Fetch lyrics (LRCLIB) when the lyrics view is open (card or kiosk); per track.
   const lyricsWanted =
     (view === "lyrics" || (kiosk && kioskView === "lyrics")) && !!player.title && !!player.artist;
@@ -514,6 +521,7 @@ export function NowPlayingCard({
             onColor={setAlbumColor}
             lyrics={lyrics}
             lyricsLoading={lyricsLoading}
+            lyricsKey={lyricsKey}
             pos={pos}
             onSeek={(t) => {
               const v = Math.round(t);
@@ -997,6 +1005,7 @@ export function NowPlayingCard({
           lines={lyrics?.synced ?? null}
           plain={lyrics?.plain ?? null}
           lyricsLoading={lyricsLoading}
+          lyricsKey={lyricsKey}
           position={pos}
           onSeek={(t) => {
             const v = Math.round(t);
