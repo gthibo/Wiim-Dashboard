@@ -20,15 +20,16 @@ four merged branches from prior sessions. Merge commits preserve tips
 via second-parent, so anything a branch carried is still reachable via
 `git log <merge-sha>^2`.
 
-Third Hermes calibration data point at `tier: pro` / researcher-profile
-(not V4 Flash Med — the previous two-loop calibration): the USB
-follow-on port required real fork-adaptation judgment (upstream targets
+Third Hermes calibration data point at `tier: pro` on
+`deepseek-v4-pro` (opencode-zen), verdict adequate. The USB follow-on
+port required real fork-adaptation judgment (upstream targets
 `<OutputCard>`; we render `<SourceOutputPanel>`), and Hermes caught a
 plan omission (fork's `caps` is nullable → `caps?.outputCoexist`)
-during typecheck. Landed clean.
+during typecheck. First Pro-tier data point on this fork; a second
+Pro loop would consolidate.
 
-Next: forward-scope items #5 (Round 44 recon report's 4-item
-corrections list) and #6 (`39446 → 0.0.0.0` binding question) remain.
+Next: forward-scope items #1 (Round 44 recon report's 4-item
+corrections list) and #2 (`39446 → 0.0.0.0` binding question) remain.
 Nothing blocking in the tree.
 
 ## Live git state to verify at session open
@@ -140,18 +141,20 @@ committing the plan.
 
 ### Third Hermes calibration data point
 
-Not V4 Flash Med this time. Tier `pro` in the plan; Hermes picked up
-under "researcher profile" (per `## Result` narrative). The
-`.done.md` template's `model:` / `tier adequacy:` / `evidence:` lines
-were not filled in — Hermes wrote a narrative Result section instead of
-the templated fields. Not blocking (info is there), but the scannable
-one-liner adequacy read is missing. Worth mentioning next time Hermes's
-prompt is tuned.
+Model: `deepseek-v4-pro` (opencode-zen). Tier `pro` in the plan;
+Hermes's own adequacy call: `adequate`. Strain named by Hermes: one
+null-safety line a subagent missed (`caps?.outputCoexist`), caught by
+typecheck and fixed; plus three plan-authoring ambiguities (grep-guard
+count, file-count 8-vs-9, `_showa` path handling), all resolved
+without rework. First Pro-tier data point on this fork — treat as an
+early signal, not a stable calibration; a second Pro loop would
+consolidate.
 
-Verdict from independent review: adequate. Work landed clean under
-review; the fork-adaptation judgment on `caps?.` was correct and
-proactive. Second Pro-tier data point pending — treat as an early
-signal, not a stable calibration.
+The `.done.md`'s templated `model:` / `tier adequacy:` / `evidence:`
+fields were not filled in at execution time — Hermes wrote a narrative
+Result section instead. Supplied post-hoc via chat; the archived
+`.done.md` was patched to include them. Hermes has committed to
+populating those fields at execution time going forward.
 
 ### Push-from-Windows note — confirmed once more
 
@@ -167,11 +170,7 @@ Trimmed to what's actually left after this session:
    end of `round44-upstream-recon-report.md`. Small factual fixes.
 2. **Port `39446 → 0.0.0.0` binding question.** Deferred container
    network-exposure item from the 20260913-end handoff.
-3. **`.done.md` template fill-in.** Hermes wrote a narrative Result
-   section instead of filling in `model:` / `tier adequacy:` /
-   `evidence:` fields. Consider prompt tuning so those land in a
-   scannable spot for future review.
-4. **Plan-authoring discipline.** Dry-run grep guards against a
+3. **Plan-authoring discipline.** Dry-run grep guards against a
    hypothetical fresh checkout before finalizing a plan; audit "N file
    paths" prose against the actual named files. Both bit this session.
 
