@@ -2,6 +2,7 @@ import "server-only";
 import { wiimRequest } from "./client";
 import { Cmd, SOURCES, AMP_PROJECT_HINTS } from "./constants";
 import { safeJson, parseDeviceInfo, parseEqList } from "./parse";
+import { fetchOutputCoexist } from "./commands";
 import type { DeviceCapabilities, DeviceInfo } from "./types";
 
 function parsePlmSupport(raw: Record<string, unknown>): number {
@@ -53,10 +54,11 @@ export async function detectCapabilities(
     info.temperatureBoard != null;
 
   // Probe sub-out + output + EQ in parallel (best-effort).
-  const [subText, outText, eqListText] = await Promise.all([
+  const [subText, outText, eqListText, outputCoexist] = await Promise.all([
     wiimRequest(ip, Cmd.getSub, { timeoutMs: 5000 }).then((r) => r.text).catch(() => ""),
     wiimRequest(ip, Cmd.getOutput, { timeoutMs: 5000 }).then((r) => r.text).catch(() => ""),
     wiimRequest(ip, Cmd.eqList, { timeoutMs: 5000 }).then((r) => r.text).catch(() => ""),
+    fetchOutputCoexist(ip).catch(() => ({}) as Record<number, number[]>),
   ]);
 
   // EQ_support is a flag/version string (e.g. "1" or "EqNp_ver_2.0"), so treat
@@ -111,6 +113,7 @@ export async function detectCapabilities(
       sources: deriveSources(raw, project),
       outputs,
       isAmp,
+      outputCoexist,
     },
   };
 }

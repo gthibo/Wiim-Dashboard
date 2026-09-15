@@ -279,6 +279,8 @@ export function Dashboard({ initialDevices }: { initialDevices: DeviceListItem[]
               online={online}
               info={snap.info}
               usbDac={snap.usbDac}
+              available={snap.availableOutputs}
+              coexist={caps?.outputCoexist}
             />
 
             {online && (
