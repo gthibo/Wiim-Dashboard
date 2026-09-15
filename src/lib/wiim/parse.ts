@@ -153,6 +153,10 @@ export function deriveSource(
   mode: string,
   vendor: string | null,
 ): { sourceMode: string; sourceLabel: string; sourceKey: string | null } {
+  // USB-drive playback is misreported as network mode 10 with vendor "UDiskLocal".
+  if (vendor && vendor.toLowerCase() === "udisklocal") {
+    return { sourceMode: "11", sourceLabel: PLAYING_MODE_LABEL["11"] ?? "USB", sourceKey: "udisk" };
+  }
   const sourceLabel = PLAYING_MODE_LABEL[mode] ?? "Unknown";
   const physicalSourceKey = SOURCES.find((s) => s.modes.includes(mode))?.key ?? null;
   let sourceKey: string | null;
@@ -168,6 +172,33 @@ export function deriveSource(
   return { sourceMode: mode, sourceLabel, sourceKey };
 }
 
+// curpos/totlen arrive in ms on most firmware, but µs on some modes/firmware.
+// Decide the unit ONCE per response from the duration (the reliable signal),
+// apply to both. ALWAYS_MS_MODES never emit µs; >= TIMING_MS_THRESHOLD is the µs
+// flag; and curpos > totlen is a documented garbage reading. Normalise to whole
+// seconds. (Heuristic from @ozbenh's rustywiim.)
+const ALWAYS_MS_MODES = new Set(["1", "2", "10", "20", "11", "42", "51"]);
+const TIMING_MS_THRESHOLD = 36_000_000; // 10h in ms; a larger raw value is µs
+
+function decodeTimingSec(
+  rawPos: number,
+  rawDur: number,
+  mode: string,
+): { position: number; duration: number } {
+  // Decide the unit ONCE per response, from the duration (the reliable signal),
+  // and apply to both values. Per-field deciding read a small position as ms
+  // while a large duration read as µs; the two disagreed by 1000×, the guard
+  // below binned the whole reading, and the timeline stayed empty for the first
+  // 36 s of every track.
+  const isMicroseconds =
+    !ALWAYS_MS_MODES.has(mode) && Math.max(rawDur, rawPos) >= TIMING_MS_THRESHOLD;
+  const toMs = (v: number): number => (isMicroseconds ? Math.round(v / 1000) : v);
+  const posMs = toMs(rawPos);
+  const durMs = toMs(rawDur);
+  if (durMs > 0 && posMs > durMs) return { position: 0, duration: 0 }; // garbage tick
+  return { position: Math.round(posMs / 1000), duration: Math.round(durMs / 1000) };
+}
+
 export function parsePlayerStatus(raw: Record<string, unknown>): PlayerStatus {
   const statusKey = String(raw.status ?? "stop").toLowerCase();
   const state: PlaybackState =
@@ -177,6 +208,7 @@ export function parsePlayerStatus(raw: Record<string, unknown>): PlayerStatus {
   // push sessions, which land on odd mode codes with no matching physical input.
   const vendor = cleanMetaText(raw.vendor);
   const { sourceMode, sourceLabel, sourceKey } = deriveSource(String(raw.mode ?? "0"), vendor);
+  const timing = decodeTimingSec(num(raw.curpos), num(raw.totlen), sourceMode);
 
   const { repeat, shuffle } = parseLoop(num(raw.loop, 0));
 
@@ -186,8 +218,8 @@ export function parsePlayerStatus(raw: Record<string, unknown>): PlayerStatus {
     artist: decodeMaybeHex(raw.Artist),
     album: decodeMaybeHex(raw.Album),
     albumArt: null, // filled from getMetaInfo
-    position: Math.round(num(raw.curpos) / 1000),
-    duration: Math.round(num(raw.totlen) / 1000),
+    position: timing.position,
+    duration: timing.duration,
     volume: Math.round(num(raw.vol)),
     muted: String(raw.mute) === "1",
     sourceMode,

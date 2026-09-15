@@ -107,6 +107,7 @@ export async function getDeviceSnapshot(device: PollableDevice): Promise<DeviceS
       sampleRate: null,
       bitDepth: null,
       bitRate: null,
+      actualQuality: null,
       title: null,
       artist: null,
       album: null,
@@ -180,6 +181,7 @@ export async function getDeviceSnapshot(device: PollableDevice): Promise<DeviceS
       meta.sampleRate,
       meta.bitDepth,
       meta.bitRate,
+      meta.actualQuality,
     );
     // For Bluetooth, also show which device is casting (getbtstatus a2dp_sink).
     if (player.service?.key === "bluetooth") {
