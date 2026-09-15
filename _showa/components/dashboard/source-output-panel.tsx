@@ -91,6 +91,16 @@ const ICON_SHADOW = { filter: "drop-shadow(0 2px 3px hsl(0 0% 0% / 0.85))" };
 // depends on how many options a row has (Pass 2 fix). Greg's value: 100px.
 const KEYCAP_WIDTH = "w-[100px] shrink-0";
 
+/** Button label for the USB output: the connected DAC's name — collapsing a
+ *  repeated leading word some DACs report ("Audio-gd Audio-gd …" → "Audio-gd")
+ *  and trimming if long — else the generic "USB". (@MennoH request, #11) */
+function usbLabel(usbDac?: string | null): string {
+  if (!usbDac) return "USB";
+  let name = usbDac.trim().replace(/^(\S+)\s+\1\b/i, "$1").trim();
+  if (name.length > 16) name = name.slice(0, 15).trimEnd() + "…";
+  return name || "USB";
+}
+
 export function SourceOutputPanel({
   deviceId,
   sourceKeys,
@@ -107,6 +117,8 @@ export function SourceOutputPanel({
   online,
   info,
   usbDac,
+  available,
+  coexist,
 }: {
   deviceId: string;
   sourceKeys: string[];
@@ -123,6 +135,8 @@ export function SourceOutputPanel({
   online: boolean;
   info: DeviceInfo | null;
   usbDac?: string | null;
+  available?: number[];
+  coexist?: Record<number, number[]>;
 }) {
   const toast = useToast();
   const [busySource, setBusySource] = useState<string | null>(null);
@@ -147,12 +161,28 @@ export function SourceOutputPanel({
   const currentSourceValue = SOURCES.find((s) => s.key === currentSourceKey)?.value ?? null;
 
   // ── Output options (mirrors the old OutputCard filter) ──────────────────
-  const outputOptions: RowOption[] = OUTPUTS.filter((o) => outputIds.includes(o.id)).map((o) => ({
+  // Prefer the live sound-card roster (availableOutputs) so a volatile output
+  // like USB stays listed while its DAC is connected, falling back to the
+  // detected capability set; always keep the live current output, and label
+  // the USB (id 8) button with the connected DAC's name (upstream #11).
+  const base = available && available.length > 0 ? available : outputIds;
+  const ids = currentOutput != null && !base.includes(currentOutput)
+    ? [...base, currentOutput] : base;
+  const outputOptions: RowOption[] = OUTPUTS.filter((o) => ids.includes(o.id)).map((o) => ({
     id: String(o.id),
-    label: o.label,
+    label: o.id === 8 ? usbLabel(usbDac) : o.label,
     icon: o.icon,
   }));
   const currentOutputId = currentOutput != null ? String(currentOutput) : null;
+
+  // Outputs this device drives at the same time as the current one (e.g. the
+  // Ultra feeds Line Out alongside Optical/COAX) — read from outputCoexist.
+  const coexistLabels =
+    currentOutput != null
+      ? (coexist?.[currentOutput] ?? [])
+          .map((id) => OUTPUTS.find((o) => o.id === id)?.label)
+          .filter((l): l is string => !!l)
+      : [];
 
   const hasSource = sourceOptions.length > 0;
   const hasOutput = outputOptions.length > 0;
@@ -269,6 +299,11 @@ export function SourceOutputPanel({
                     busyId={busyOutput}
                     onSelect={selectOutput}
                   />
+                )}
+                {coexistLabels.length > 0 && (
+                  <p className="px-6 pb-4 text-[11px] leading-snug text-[hsl(var(--faceplate)/0.5)]">
+                    Also playing through {coexistLabels.join(" + ")} at the same time.
+                  </p>
                 )}
               </div>
             )}

@@ -11,7 +11,7 @@ import {
   fetchBtSourceName,
   fetchModeRename,
   fetchAudioInputEnable,
-  fetchUsbDac,
+  fetchSoundCard,
   fetchMultiroomSlaves,
 } from "./commands";
 import { detectService, inferAudioFormat } from "./now-playing-info";
@@ -29,7 +29,7 @@ export interface PollableDevice {
 export async function getDeviceSnapshot(device: PollableDevice): Promise<DeviceSnapshot> {
   const caps = device.capabilities;
 
-  const [infoR, playerR, metaR, subR, outR, presetsR, renameR, inputEnR, usbDacR, slavesR] =
+  const [infoR, playerR, metaR, subR, outR, presetsR, renameR, inputEnR, soundCardR, slavesR] =
     await Promise.allSettled([
       fetchDeviceInfo(device.ip),
       fetchPlayerStatus(device.ip),
@@ -39,7 +39,7 @@ export async function getDeviceSnapshot(device: PollableDevice): Promise<DeviceS
       caps?.presetCount ? fetchPresets(device.ip, caps.presetCount) : Promise.resolve(null),
       fetchModeRename(device.ip),
       fetchAudioInputEnable(device.ip),
-      fetchUsbDac(device.ip),
+      fetchSoundCard(device.ip),
       // Not capability-gated like the calls above: whether this device is a
       // master can only be learned by asking, so every device is asked on
       // every poll. Cheap on a LAN; returns [] (not a master) on any failure.
@@ -232,7 +232,8 @@ export async function getDeviceSnapshot(device: PollableDevice): Promise<DeviceS
             .filter(([k, on]) => !on && k !== "wifi")
             .map(([k]) => k)
         : undefined,
-    usbDac: usbDacR.status === "fulfilled" ? usbDacR.value : null,
+    usbDac: soundCardR.status === "fulfilled" ? soundCardR.value.usbDac : null,
+    availableOutputs: soundCardR.status === "fulfilled" ? soundCardR.value.outputs : undefined,
     sleepExpiresAt: getSleep(device.id),
   };
 }
