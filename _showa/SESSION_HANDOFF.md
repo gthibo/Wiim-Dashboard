@@ -1,177 +1,212 @@
 # Showa Hi-Fi Counter — Session Handoff
 
-*Updated end of session: September 14, 2026 (second session that day), after merging the e61b4b9 USB-output manual port, pushing main, and confirming live UX on the Ultra. Supersedes all prior handoff content.*
+*Updated end of session: September 14, 2026 (third session that day), after landing forward-scope items #1–4 in a single sitting: preamble amendments, `hermes/*` branch retention policy, orphan `_showa` cleanup, and the full e61b4b9 follow-on USB port (upstream e0db2ee + 2b78de1 + c272376). Supersedes all prior handoff content.*
 
 ## tl;dr for picking this back up
 
-The e61b4b9 USB-output manual port is merged, pushed, and live. HEAD on
-`main` is `61e3a43` (merge commit; parents `10f69a5` + `3ec1233`).
-Working tree clean. `origin/main` caught up (no unpushed commits).
-Container running fresh image built with `--no-cache`, healthy. Greg
-confirmed the USB entry visible in the Output card against a real Ultra
-with a USB DAC connected.
+Four items closed. HEAD on `main` is `30198ef` (merge commit; parents
+`7844cd0` + `b27b2f0`). Working tree clean. `origin/main` is 2 commits
+behind (`30198ef` + `b27b2f0`) — push pending, Greg's action from
+Windows PS (GCM cached). Container built with a fresh (non-cached)
+image, healthy on port `39446`, `/api/health` returning `{"ok":true}`.
+Live UX not yet Ultra-verified this session — build passed and greps
+matched, but the DAC-name label, `available` roster, and coexist
+sub-line have not been eyeballed against real hardware. Do that after
+push.
 
-Second Hermes calibration loop closed on `deepseek-v4-flash` at Med
-reasoning — "adequate" verdict for the second time, on strictly-easier
-work than the lyrics-nudge port. Consistent signal that V4 Flash Med has
-headroom on mechanical ports of this size class.
+`hermes/*` namespace is now empty by policy: this session codified
+"delete on merge" in the root preamble and retroactively deleted all
+four merged branches from prior sessions. Merge commits preserve tips
+via second-parent, so anything a branch carried is still reachable via
+`git log <merge-sha>^2`.
 
-Next: pick from the forward-scope list below. The natural next port
-target is the follow-on USB output work upstream — `available` /
-`usbDac` / `outputNames` / `coexist` — that layered on after `e61b4b9`.
+Third Hermes calibration data point at `tier: pro` / researcher-profile
+(not V4 Flash Med — the previous two-loop calibration): the USB
+follow-on port required real fork-adaptation judgment (upstream targets
+`<OutputCard>`; we render `<SourceOutputPanel>`), and Hermes caught a
+plan omission (fork's `caps` is nullable → `caps?.outputCoexist`)
+during typecheck. Landed clean.
+
+Next: forward-scope items #5 (Round 44 recon report's 4-item
+corrections list) and #6 (`39446 → 0.0.0.0` binding question) remain.
+Nothing blocking in the tree.
 
 ## Live git state to verify at session open
 
-    git log --oneline -5 main
+    git log --oneline -6 main
     # expect:
+    # 30198ef Merge hermes/usb-chain-followon into main
+    # b27b2f0 Port USB output/coexist support: live sound-card roster, output-coexist mode, USB DAC label (upstream e0db2ee, 2b78de1, c272376)
+    # 7844cd0 chore(_showa): remove orphan now-playing-card.tsx duplicate
+    # 92d6e52 docs: session close 2026-09-14 (e61b4b9 USB output merged)
     # 61e3a43 Merge hermes/e61b4b9-usb-output into main
     # 3ec1233 feat(output): show & select USB output in the Output card (manual port of upstream e61b4b9)
-    # 10f69a5 git add _showa/SESSION_HANDOFF.md _showa/README.md && git commit -m "docs: session close 2026-09-14"
-    # 660f929 Merge hermes/8fe1f64-lyrics-nudge into main
-    # bcc6d23 feat(lyrics): per-track timing nudge (manual port of upstream 8fe1f64)
 
     git status
-    # expect: On branch main; working tree clean; up to date with origin/main
+    # expect: On branch main; working tree clean;
+    #         Your branch is ahead of 'origin/main' by 2 commits.
+    #         (unless Greg has pushed since — then: up to date with origin/main)
 
-Confirm the merge commit `61e3a43` exists and the tree is clean before
-starting anything.
+    git branch --list "hermes/*"
+    # expect: empty (policy: delete on merge)
+
+Confirm both merge commits (`30198ef`, `61e3a43`) exist and the tree is
+clean before starting anything.
 
 ## Recent activity (this session)
 
-### Backup gap closed — push `main` to `origin/main`
+### 1. Preamble amendments — applied
 
-12 unpushed commits (accumulated since Round 43) pushed cleanly.
-`10f69a5..61e3a43` now on `origin/main` at session end.
+Four amendments across the two preambles + one to project memory:
 
-Learned: `git push` from within WSL hangs on the username prompt
-(no credential helper configured in the WSL git); run from Windows
-PowerShell where Git Credential Manager (`credential.helper = manager`)
-is set up and cached. Worth codifying in the preamble if this recurs.
+- **`HERMES_PREAMBLE.md` § 2 (Git discipline):** added branch-retention
+  bullet — `hermes/*` deleted post-merge; second-parent preserves the
+  tip.
+- **`HERMES_PREAMBLE.md` § 3 (Verification discipline):** added
+  content-only line-count guard paragraph — `grep -c '^+[^+]'` /
+  `'^-[^-]'` or `git show --stat`, not raw `^+` / `^-`. Referenced the
+  e61b4b9 USB-output guard as the concrete triggering case.
+- **`HERMES_PREAMBLE.md` § 5 (Tier signal):** added naming note —
+  `tier:` is a ladder abstraction; confirmed mapping `tier: med` →
+  `deepseek-v4-flash` at Med reasoning.
+- **`HERMES_PREAMBLE_wiim-dashboard.md` Rule 2 (Docker):** replaced the
+  "rerun with `--no-cache` immediately" bullet with the Compose v5
+  quirk correction — `--no-cache` not accepted on `up --build`, use
+  `docker compose build --no-cache && docker compose up -d`.
+- **Project memory (`ways-of-working.md` § Git hygiene):** added the
+  push-from-Windows-PS-not-WSL note + the branch-retention rule in a
+  single bullet. Committed to memory only.
 
-### e61b4b9 USB-output manual port (this session's main work)
+### 2. `hermes/*` branch retention policy — codified
 
-Recon → plan → Hermes → runtime-confirm → merge → push, one session.
-Manual port of upstream `e61b4b9` ("show & select USB output in the
-Output card", GitHub issue #11).
+"Delete on merge" chosen (simplest, no ref accumulation, merge commits
+already preserve tips via second-parent). Codified in
+`HERMES_PREAMBLE.md` § 2 alongside the naming convention. Retroactive
+cleanup deleted four merged branches:
+`hermes/5deb24e-cookie-secure`, `hermes/reconcile-now-playing-card-mirror`,
+`hermes/8fe1f64-lyrics-nudge`, `hermes/e61b4b9-usb-output`. Handoff-noted:
+the prior handoff had the cookie-secure branch name wrong
+(`cookie-secure-cherry-pick` vs actual `5deb24e-cookie-secure`); silent
+no-op on the first `git branch -d` attempt caught it.
 
-- Plan / done: `C:\Users\mrthi\Documents\WIIM\archive\2026-09-14-e61b4b9-usb-output.done.md`
-- Port commit: `3ec1233`, merged as `61e3a43`.
-- Three src/ files, +10/−1: `src/lib/wiim/constants.ts` (OUTPUTS gains
-  id 8 = USB), `src/lib/wiim/capabilities.ts` (4-line `curHw` fallback
-  inside `outputSwitch` block), `src/components/dashboard/output-card.tsx`
-  (`const ids` binding folds live current output into render list).
-- No `_showa/` mirror needed — `output-card.tsx` is shared UI without a
-  Showa fork; the other two are data-layer (src/-only by policy).
+### 3. Orphan `_showa/components/now-playing-card.tsx` — removed
 
-**Deviation of note:** Hermes flagged a planning-side bug in the task-4
-verification guard. The plan called for
-`git diff -U0 <file> | grep -c "^+"` to equal 5 and `"^-"` to equal 1
-(net +5/−1 on the file). Those grep patterns also match `git diff`'s
-`+++ b/…` / `--- a/…` file-header lines, so the actual counts came back
-6/2. Hermes correctly re-ran with `grep -c '^+[^+]'` / `'^-[^-]'` to
-exclude headers, got the intended 5/1, and reported the mis-specified
-guard as a deviation. `git show --stat` also confirmed 10 insertions,
-1 deletion, which was the plan's real intent. Fold this into planning
-discipline: for line-count guards, use content-only grep patterns, or
-better, use `git show --stat` / `git diff --numstat` on the specific
-file. Filed under forward-scope preamble amendments.
+Verified genuinely stale: single old commit (`88f4e7d "Small tweaks"`),
+no imports reference the path (only self-reference was in the prior
+handoff). Live copy at `_showa/components/dashboard/now-playing-card.tsx`
+unaffected. Removed as commit `7844cd0` (1126 deletions, tracked file).
 
-**Build note:** `docker compose up -d --build` from Hermes ran cleanly
-without CACHED builder layers this time — no `--no-cache` needed. The
-"CACHED = didn't compile" trap remains a known hazard but did not
-trigger here.
+### 4. e61b4b9 follow-on USB port — full port, this session's main work
 
-### Second Hermes calibration loop
+Recon → plan → Hermes → review → merge, one session.
 
-Model: `deepseek-v4-flash` (Med reasoning) via opencode-zen. Same model
-as the first (lyrics-nudge) loop; second data point at "adequate."
+- Plan / done: `C:\Users\mrthi\Documents\WIIM\archive\2026-09-14-usb-chain-followon.done.md`
+- Port commit: `b27b2f0`, merged as `30198ef`.
+- 9 files, +170/−22:
+  - Data layer (src only): `constants.ts` (adds
+    `OUTPUT_MODE_NAME_TO_HW` map), `commands.ts` (`fetchUsbDac` →
+    `fetchSoundCard`; adds `fetchOutputCoexist`), `snapshot.ts` (rename
+    + adds `availableOutputs` field), `capabilities.ts` (Promise.all
+    3→4, adds `outputCoexist`), `types.ts` (adds `outputCoexist` on
+    caps, `availableOutputs?` on snapshot).
+  - UI (dual-write): `dashboard.tsx` × 2 (passes
+    `available`/`coexist`), `source-output-panel.tsx` × 2 (adds
+    `usbLabel()` helper, live-roster logic on `outputOptions`, coexist
+    sub-line render).
 
-Verdict: adequate with visible headroom. All 3 anchor greps landed
-1/1/1; guard counts 1/2 / 1/1/3 / 1/1/0 as specified; typecheck +
-lint exit 0 (one pre-existing unrelated warning); single commit
-byte-for-byte per the plan's heredoc; no step-up triggers fired.
+**Fork adaptation:** upstream targeted `<OutputCard>` in `dashboard.tsx`;
+our fork renders `<SourceOutputPanel>` (SHOWA re-skin, Rounds 21/25)
+and `output-card.tsx` is orphaned. The port translated upstream's
+OutputCard changes into SourceOutputPanel's structure. Explicitly out
+of scope: `output-card.tsx` (kept stale), the `acoustic` field
+(belongs to upstream `3107749`, not this port). Both flagged in the
+plan and observed correctly by Hermes.
 
-Calibration state: "V4 Flash Med, adequate on mechanical ports of
-≤~300 lines / ≤6 files" is a stable read. Any future calibration
-downward should be on a genuinely trivial job (comment-only edit,
-single typo fix) — not another mechanical port, or you can't tell
-whether success proves capability or task-easiness.
+**Deviation of note:** Hermes caught a plan omission — this fork's
+`caps` is `DeviceCapabilities | null` with an optional-chaining
+convention, but the plan showed `coexist={caps.outputCoexist}`.
+Typecheck flagged it; Hermes fixed to `caps?.outputCoexist` in both
+trees. Real improvement over the plan text. Fold into planning
+discipline: for prop-passing from a nullable object, check the fork's
+existing convention before writing the exact prop expression.
 
-Naming note discovered mid-session: plan template's
-`tier: flash | med | pro` ladder is *not* the same as opencode-zen
-model family names. `tier: med` maps to `deepseek-v4-flash` at Med
-reasoning; `tier: flash` presumably maps to a lighter tier below
-that. If a fresh planner instance mixes these up, the confusion is
-predictable.
+**Plan-authoring bugs I caught (not Hermes's):** spec said `grep -c
+'outputCoexist' capabilities.ts` = 3; substring grep actually gives 4
+(import, destructure, Promise.all call, return field). Spec said "8
+file paths" but named 9 unique files across 10 edits. Two spec-side
+slips; neither affected the code. Next-time discipline: mentally
+run each grep guard against a hypothetical fresh checkout before
+committing the plan.
+
+### Third Hermes calibration data point
+
+Not V4 Flash Med this time. Tier `pro` in the plan; Hermes picked up
+under "researcher profile" (per `## Result` narrative). The
+`.done.md` template's `model:` / `tier adequacy:` / `evidence:` lines
+were not filled in — Hermes wrote a narrative Result section instead of
+the templated fields. Not blocking (info is there), but the scannable
+one-liner adequacy read is missing. Worth mentioning next time Hermes's
+prompt is tuned.
+
+Verdict from independent review: adequate. Work landed clean under
+review; the fork-adaptation judgment on `caps?.` was correct and
+proactive. Second Pro-tier data point pending — treat as an early
+signal, not a stable calibration.
+
+### Push-from-Windows note — confirmed once more
+
+Not exercised this session (nothing pushed), but the earlier finding
+holds and is now codified in the wiim-dashboard preamble amendment +
+project memory: `git push` from Windows PS with GCM, not from WSL.
 
 ## Forward scope — standing candidates
 
-In roughly ascending order of "real work":
+Trimmed to what's actually left after this session:
 
-1. **Preamble amendments** in `C:\Users\mrthi\Documents\WIIM\workflow.md`
-   (and/or per-project preamble). Batchable session-close hygiene:
-   - Docker Compose v5 quirk: `--no-cache` not accepted on
-     `up --build`; use `build --no-cache && up -d`.
-   - WSL git identity note (`Greg T <me@gregthibodeaux.com>` is the
-     standing committer via repo-local WSL config).
-   - `git push` runs from Windows PowerShell (GCM cached), not WSL
-     (no credential helper) — codify if it bites again.
-   - Line-count verification guards: use `grep -c '^+[^+]'` /
-     `'^-[^-]'` or `git show --stat`, not raw `^+` / `^-` which
-     match diff headers.
-   - Plan-template `tier` ladder ≠ opencode-zen model family names;
-     clarify what `tier: flash` maps to in your Hermes config.
-   - Convention: draft plans live in `WIIM\tasks\`, archived
-     `.done.md` in `WIIM\archive\`.
-2. **`hermes/*` branch retention policy.** Four merged Hermes branches
-   now exist locally (`hermes/cookie-secure-cherry-pick`,
-   `hermes/reconcile-now-playing-card-mirror`,
-   `hermes/8fe1f64-lyrics-nudge`, `hermes/e61b4b9-usb-output`).
-   Decide: delete on merge, keep N, or archive elsewhere. One-line
-   addition to the preamble.
-3. **Orphan `_showa/components/now-playing-card.tsx`** — stale
-   duplicate at `_showa/components/` (no `/dashboard/` subdir).
-   Verify orphan status and delete if confirmed unreferenced.
-4. **e61b4b9 follow-on USB work** — natural next port target now
-   that `#11` is landed. Upstream layered onto the same three files
-   after `e61b4b9`:
-   - `available` roster from `getSoundCardModeSupportList`
-   - `usbDac` name label (shows the connected DAC's name in place of
-     "USB")
-   - `outputNames` amp-speaker relabelling
-   - `coexist` sub-line ("Also playing through X + Y")
-   Needs its own recon pass to unpack which upstream commits carry
-   which change, and decide whether to port as one round or split.
-5. **Round 44 report's 4-item corrections list** — noted at the end
-   of the recon report; small factual fixes.
-6. **Port `39446 → 0.0.0.0` binding question** — deferred item from
-   the 20260913-end handoff about container network exposure.
+1. **Round 44 recon report's 4-item corrections list.** Noted at the
+   end of `round44-upstream-recon-report.md`. Small factual fixes.
+2. **Port `39446 → 0.0.0.0` binding question.** Deferred container
+   network-exposure item from the 20260913-end handoff.
+3. **`.done.md` template fill-in.** Hermes wrote a narrative Result
+   section instead of filling in `model:` / `tier adequacy:` /
+   `evidence:` fields. Consider prompt tuning so those land in a
+   scannable spot for future review.
+4. **Plan-authoring discipline.** Dry-run grep guards against a
+   hypothetical fresh checkout before finalizing a plan; audit "N file
+   paths" prose against the actual named files. Both bit this session.
 
 ## Canonical reference documents
 
 Not tracked in this repo, don't get overwritten by round work:
 
 - `C:\Users\mrthi\Documents\WIIM\round44-upstream-recon-report.md` —
-  the authoritative recon of v0.3.11..v0.3.17. Input for all
-  Round 44+ planning. Includes the "4 corrections" list.
+  authoritative recon of v0.3.11..v0.3.17. Input for all Round 44+
+  planning. Includes the "4 corrections" list.
 - `C:\Users\mrthi\Documents\WIIM\workflow.md` — Hermes/Opus workflow
   contract, file-status transitions, preamble carrier.
+- `C:\Users\mrthi\Documents\WIIM\HERMES_PREAMBLE.md` — root preamble
+  (git discipline, verification, tier signal). Amended this session.
+- `C:\Users\mrthi\Documents\WIIM\HERMES_PREAMBLE_wiim-dashboard.md` —
+  project preamble (dual-write, Docker, line endings, identity,
+  untracked files, tests). Amended this session.
 - `C:\Users\mrthi\Documents\WIIM\templates\plan-template.md` — Hermes
   task plan template.
-- `C:\Users\mrthi\Documents\WIIM\tasks\` — drafts + approved plans
-  in flight.
+- `C:\Users\mrthi\Documents\WIIM\tasks\` — drafts + approved plans in
+  flight. Empty at session close.
 - `C:\Users\mrthi\Documents\WIIM\archive\` — closed `.done.md` +
-  `-review.md` pairs, most recent at top.
+  `-review.md` pairs, most recent at top. Now includes
+  `2026-09-14-usb-chain-followon.done.md`.
 
 ## Standing operational rules
 
 Refer to project memory for these (they are current and load-bearing):
 
-- Session discipline, dual-write convention, edit-verification
-  workflow, git hygiene, merge strategy, AI agent roles, build/shell
-  patterns, known pitfalls, Hermes task lifecycle archiving, planning
-  discipline (insertion-point maps), and tools/paths — all live in
-  `ways-of-working.md` under this project's memory.
+- Session discipline, dual-write convention, edit-verification workflow,
+  git hygiene (including push-from-Windows note and `hermes/*` deletion
+  policy — added this session), merge strategy, AI agent roles, build /
+  shell patterns, known pitfalls, Hermes task lifecycle archiving,
+  planning discipline (insertion-point maps), and tools / paths — all
+  live in `ways-of-working.md` under this project's memory.
 - Purpose, design tokens, environment, and horizon items live in
   `overview.md`.
 
