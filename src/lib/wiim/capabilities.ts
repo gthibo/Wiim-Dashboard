@@ -2,7 +2,7 @@ import "server-only";
 import { wiimRequest } from "./client";
 import { Cmd, SOURCES, AMP_PROJECT_HINTS } from "./constants";
 import { safeJson, parseDeviceInfo, parseEqList } from "./parse";
-import { fetchOutputCoexist } from "./commands";
+import { fetchOutputCoexist, fetchAudioInputEnable } from "./commands";
 import type { DeviceCapabilities, DeviceInfo } from "./types";
 
 function parsePlmSupport(raw: Record<string, unknown>): number {
@@ -15,7 +15,15 @@ function parsePlmSupport(raw: Record<string, unknown>): number {
   return Number.isFinite(hex) ? hex : 0;
 }
 
-function deriveSources(raw: Record<string, unknown>, project: string): string[] {
+/** Inputs that legitimately never appear in getAudioInputEnable (network +
+ *  streaming / one-off inputs), so a non-empty roster must NOT prune them. */
+const INPUT_KEEP_REGARDLESS = new Set(["wifi", "udisk", "ARC", "cd", "PCUSB", "bluetooth"]);
+
+function deriveSources(
+  raw: Record<string, unknown>,
+  project: string,
+  inputEnable?: Record<string, boolean>,
+): string[] {
   const mask = parsePlmSupport(raw);
   const keys: string[] = ["wifi"]; // network is always available
   if (mask > 0) {
@@ -30,8 +38,17 @@ function deriveSources(raw: Record<string, unknown>, project: string): string[] 
   // HDMI ARC inputs are often not flagged, so offer them explicitly. (Any other
   // source, if active, is surfaced by the "always show the active source" rule.)
   if (project.includes("ultra")) keys.push("udisk", "ARC");
+  // plm_support also OVER-asserts inputs a device lacks. When getAudioInputEnable
+  // enumerates the real inputs (non-empty roster), drop plm-derived physical
+  // inputs it doesn't list — keeping network + streaming inputs that never appear
+  // there. Empty roster (unsupported) ⇒ don't prune.
+  const roster = inputEnable ?? {};
+  const eligible =
+    Object.keys(roster).length > 0
+      ? keys.filter((k) => INPUT_KEEP_REGARDLESS.has(k) || k in roster)
+      : keys;
   // de-dupe, preserve SOURCES order
-  const set = new Set(keys);
+  const set = new Set(eligible);
   return SOURCES.filter((s) => set.has(s.key)).map((s) => s.key);
 }
 
@@ -54,11 +71,12 @@ export async function detectCapabilities(
     info.temperatureBoard != null;
 
   // Probe sub-out + output + EQ in parallel (best-effort).
-  const [subText, outText, eqListText, outputCoexist] = await Promise.all([
+  const [subText, outText, eqListText, outputCoexist, inputEnable] = await Promise.all([
     wiimRequest(ip, Cmd.getSub, { timeoutMs: 5000 }).then((r) => r.text).catch(() => ""),
     wiimRequest(ip, Cmd.getOutput, { timeoutMs: 5000 }).then((r) => r.text).catch(() => ""),
     wiimRequest(ip, Cmd.eqList, { timeoutMs: 5000 }).then((r) => r.text).catch(() => ""),
     fetchOutputCoexist(ip).catch(() => ({}) as Record<number, number[]>),
+    fetchAudioInputEnable(ip).catch(() => ({}) as Record<string, boolean>),
   ]);
 
   // EQ_support is a flag/version string (e.g. "1" or "EqNp_ver_2.0"), so treat
@@ -110,7 +128,7 @@ export async function detectCapabilities(
       subwoofer,
       equalizer,
       outputSwitch,
-      sources: deriveSources(raw, project),
+      sources: deriveSources(raw, project, inputEnable),
       outputs,
       isAmp,
       outputCoexist,

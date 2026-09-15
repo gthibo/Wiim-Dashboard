@@ -42,7 +42,7 @@ const NETWORK_MODES = new Set(["10", "11", "12", "13", "14", "16", "20", "21", "
  * exists to avoid, so it's excluded here rather than trusted like a real
  * vendor (Plex, BubbleUPnP, etc. all pass through untouched).
  */
-const INTERNAL_VENDOR_NAMES = new Set(["customradio"]);
+const INTERNAL_VENDOR_NAMES = new Set(["customradio", "udisklocal"]);
 
 /** True for a vendor string that names a real external service/app, not one
  *  of WiiM's own internal aggregator names above. */
@@ -151,12 +151,19 @@ export function inferAudioFormat(
   sampleRate: number | null,
   bitDepth: number | null,
   bitRate: number | null,
+  actualQuality: string | null = null,
 ): AudioFormat | null {
   // bitRate is the reliable lossy/lossless discriminator: compressed codecs
   // (OGG/MP3/AAC) cap around 320–400 kbps, whereas lossless FLAC is ~700 kbps+.
   // The device reports a *decoded PCM* bitDepth (e.g. 16) even for lossy streams,
   // so bitDepth alone wrongly flags Spotify's 320 kbps OGG as "lossless".
-  const hiRes = (bitDepth != null && bitDepth >= 24) || (sampleRate != null && sampleRate > 48000);
+  // Trust a service's own hi-res quality tag (TIDAL HI_RES/HI_RES_LOSSLESS, Qobuz
+  // 7/27, Amazon UHD) — those fold to 16/44.1 PCM the numeric path under-labels as CD.
+  const HIRES_QUALITY = new Set(["HI_RES", "HI_RES_LOSSLESS", "UHD", "7", "27"]);
+  const qualityHiRes =
+    actualQuality != null && HIRES_QUALITY.has(actualQuality.trim().toUpperCase());
+  const hiRes =
+    qualityHiRes || (bitDepth != null && bitDepth >= 24) || (sampleRate != null && sampleRate > 48000);
 
   let tier: AudioFormat["tier"] = null;
   if (bitRate != null && bitRate > 0 && bitRate <= 400) {
