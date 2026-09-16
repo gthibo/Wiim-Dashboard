@@ -1,137 +1,123 @@
 # Showa Hi-Fi Counter — Session Handoff
 
-*Updated end of session: September 15, 2026. Round 44a landed via full multi-model pipeline (Opus design → Kimi K3 spec → Qwen3.8 Max audit → Opus adjudication → deepseek-v4-pro exec). Supersedes all prior handoff content.*
+*Updated end of session: September 16, 2026. Round 44b landed via full multi-model pipeline (Opus design → Kimi K3 spec → Qwen3.8 Max audit → Opus adjudication → kimi-k3 exec). Supersedes the Round 44a handoff (preserved below in "Previous round").*
 
 ## tl;dr for picking this back up
 
-Round 44a — the c68c950 data-layer subset — landed via merge commit `0100854` on `main` and **passed hardware smoke 2026-09-16**. 6 files, +91/−14, all 24 edits byte-exact against the adjudicated plan. Container Up (healthy); scrobbler live post-build (Elsiane — Morphing scrobbled ✓). Hi-res tier confirmed live on Amazon UHD "Reckoner" (Radiohead, *In Rainbows*): `actualQuality="UHD"` → `qualityHiRes=true` → `tier="hires"`. `actualQuality` null-handling on Plex cast graceful (CD-tier fallback); `"LOSSLESS"` on Spotify; `"UHD"` on Amazon UHD. No regressions on either device. **Round archived** to `WIIM/archive/2026-09-15-round44a-c68c950-data-layer.{done,approved,audit-qwen}.md`.
+Round 44b — the snapshot batch + c68c950 UI-layer subset — landed via merge commit `bb94ae4` on `main` and **passed static verification 2026-09-16**. 6 files, +231/−108, all edits byte-exact against the adjudicated plan. Container Up (healthy) after `docker compose up -d --build`. **Static gates green:** typecheck exit 0, lint exit 0 (1 pre-existing warning, `PEQ_RANGE` unused in `eq-response-curve.tsx` — a 44c EQ-cluster file, not touched by 44b). Dual-write parity intact (both now-playing-card.tsx copies `3eb96f7d…`).
 
-**Multi-model pipeline validated.** Qwen's audit caught 5 real must-fix issues (including a dead `actualQuality` thread and misdiagnosed trailing-space fix); Opus adjudicated and rewrote the plan; deepseek-v4-pro executed it clean. Keep the pipeline for future high-stakes rounds (44d next candidate).
+**Hardware smoke is PENDING** — the runtime smoke (USB source-card, radio timeline, DLNA `<res>` fallback) requires live devices (Ultra + Pro) and the authenticated UI; `/api/devices` is auth-gated so Hermes couldn't drive it headless. Greg to run the smoke from the UI. Revert recipe below if it fails.
 
-**Adjudication call worth remembering for 44b:** `bea000f`'s per-response `decodeTimingSec` form landed early with 44a, so 44b's `bea000f` scope shrinks to just the `deriveSource` prioritised-match hunk.
+**No docker runtime errors** in logs post-build. Health `{"ok":true}` on `:39446`.
 
-**Two smoke observations flagged for 44b/UX** (neither a regression): (A) UHD badge normalizes to "Hi-Res Lossless" in the UI regardless of service — Greg wants service-specific badge like the WiiM Home phone app; candidate for 44b UI-layer work (which includes upstream's hi-res quality-tag mapping in `now-playing-card.tsx`) or a separate fork enhancement. (B) CustomRadio streams render as "Network" (`mode 10`) not "Radio" (`mode 12/13` reserved for built-in vTuner/TuneIn) — design question, not urgent.
+## What landed (44b scope)
 
-Real next work: (1) branch cleanup at Greg's discretion, (2) session-close commit of this handoff, (3) `HERMES_PREAMBLE_wiim-dashboard.md` — WSL git identity was empty when Hermes went to commit; preamble said it was set. Preamble needs a fix or a note that identity must be re-verified per session.
+| Commit | Change |
+|---|---|
+| `6e5c6af` | `MEDIA_SOURCE_KEYS` exported from constants.ts; `isMediaSource`/`isPhysicalInput` refactor in now-playing-card.tsx (both copies) |
+| `bea000f` | `deriveSource` prioritised non-wifi match — USB-drive modes 11/21 → `udisk` (decodeTimingSec portion already landed via 44a) |
+| `0472b2b` | `resFormat()` DIDL-Lite `<res>` attribute fallbacks (`sampleRate`/`bitDepth`/`bitRate` → `?? res.x`) in upnp.ts; ARCHITECTURE.md upnp.ts row |
+| `c68c950` (UI-layer) | transport-controls-per-source + hide-timeline-when-stopped in now-playing-card.tsx (both copies) |
+| F1 adjudication | ARCHITECTURE.md commands.ts row `fetchUsbDac` → `fetchSoundCard` (pre-existing drift the design packet missed; folded in by Opus) |
+
+`types.ts` verified as a no-op (correctly).
 
 ## Live git state to verify at session open
 
     git log --oneline -5 main
-    # expect (pre-close-commit):
-    # 0100854 Merge branch 'hermes/round44a-c68c950-extraction' (--no-ff)
-    # 55fcaf5 (hermes/round44a-c68c950-extraction) round 44a exec
-    # b34f9c4 session close 2026-09-15 (Round 44+ regrouping — Q1/Q2/Q4 banked)
-    # 3b7f1fa docs: session close 2026-09-14 (recon addendum + TRUST_PROXY doc improvement)
-    # 7c5de53 docs(env.example): clarify TRUST_PROXY behavior for direct-LAN deployments
+    # expect:
+    # bb94ae4 merge: round 44b — snapshot batch + c68c950 UI-layer subset
+    # 00af84d feat(wiim): port round 44b — snapshot batch + c68c950 UI-layer subset
+    # e62ea53 docs: session close 2026-09-16 (Round 44a merged + smoke pass + archived)
+    # 0100854 merge: round 44a — c68c950 data-layer subset (unblocks 44b)
+    # ...
 
     git status
     # expect: On branch main; working tree clean
 
     git branch --list "hermes/*"
-    # expect: hermes/round44a-c68c950-extraction (55fcaf5) — preserved pending hardware smoke test
+    # expect: hermes/round44b-snapshot-batch (00af84d) — preserved pending hardware smoke
 
     git branch --list "backup/*"
-    # expect: backup/pre-44a-c68c950 — preserved for revert path
+    # expect: backup/pre-44a-c68c950 AND backup/pre-44b-snapshot-batch — preserved for revert
 
     # Revert recipe if hardware smoke fails:
-    # git revert -m 1 0100854 && docker compose up -d --build
+    # git revert -m 1 bb94ae4 && docker compose up -d --build
 
-## This session's arc
+**Note:** `main` is ahead of `origin/main` by 3 commits (44a merge + 44b feat + 44b merge). Push was **not** performed — that's Greg's call, not in the spec.
 
-Started from the 2026-09-15 planning-session close (`b34f9c4`), where three decisions were banked (Q1 c68c950 hand-extract data/UI split; Q2 isPlexArtUrl retirement via 7d99a97; Q4 9ca026e naming Path A) and Round 44a was queued for the multi-model pipeline. Session executed the full pipeline end-to-end.
+## This session's arc (execution — kimi-k3 via opencode-go)
 
-### 1. Adjudication (Opus)
+Baseline verified clean (HEAD `e62ea53`, tree clean, dual-write parity `71dc8441…`, git identity `Greg T <me@gregthibodeaux.com>` present). Branches created: `hermes/round44b-snapshot-batch` (working) + `backup/pre-44b-snapshot-batch` (rollback). Mechanical edit application delegated to a subagent (edits only); Hermes held baseline/shipping/verification and **independently verified** the subagent's self-report (full diff byte-exact, SHA parity, grep counts) before committing.
 
-Kimi K3's `.plan.md` (produced 09:34) and Qwen3.8 Max's audit (produced 10:07) were both on disk when the session opened. Read all three (design packet, plan, audit). Spot-verified Qwen's four highest-leverage claims against fork files:
+### Verification ladder (all green)
 
-- `INTERNAL_VENDOR_NAMES = new Set(["customradio"])` at now-playing-info.ts L45 ✓
-- `pickPic` key list at commands.ts L468 has no trailing-space variant ✓
-- `outputNames` genuinely absent from fork (contra Kimi K3's "already landed" claim) ✓
-- Fork symbol names: `GetInfoExResult` / `fetchTrackMeta` / `getDeviceSnapshot` (Kimi K3 used upstream's `GetInfoExParse` / `getTrackMeta` / `getSnapshot`) ✓
+- Read-back: all six files' diffs byte-exact against the approved spec (constants / parse / upnp / ARCHITECTURE / both now-playing-card copies)
+- Dual-write SHA parity: `3eb96f7d…` ×2 (match each other, differ from pre-edit baseline `71dc8441…`)
+- `MEDIA_SOURCE_KEYS` count = 3 in each copy; `decodeTimingSec` untouched in parse.ts (44a regression guard held — `NO_DECODE_TIMING_CHANGE`)
+- `fetchUsbDac` → 0, `fetchSoundCard` → 1 in ARCHITECTURE.md
+- Commit `00af84d` to working branch (Greg's identity), merge `bb94ae4` into main (--no-ff, matching 44a convention)
+- `docker compose up -d --build` — fresh build (not cached); container Up (healthy)
+- Typecheck exit 0; lint exit 0 (1 pre-existing unrelated warning)
+- Health `{"ok":true}`; no errors in container logs
 
-Audit deemed trustworthy. Adjudicated all 10 findings, all accepted with specific corrections. Fetched upstream `c68c950` hunks for `capabilities.ts`, `now-playing-info.ts`, and `commands.ts` so the rewrite could use verbatim after-hunks rather than paraphrase. **Rewrote `tasks/round44a.plan.md`** in place (36.7 KB) with all fixes folded in, model recommendation (`deepseek-v4-pro`) stated in handoff section.
+### Environment notes / drift found
 
-**Key adjudication calls:**
-- Land `bea000f`'s per-response `decodeTimingSec` form now (not c68c950's per-field form) — hand-porting has no cherry-pick fidelity to preserve; per-field form has a documented 36-second dead-timeline bug. 44b's `bea000f` scope reduces to `deriveSource` hunk only.
-- Include `capabilities.ts` plm_support pruning (Qwen Issue E) — fits round's "device-quirk fixes" charter; ports cleanly since fork has `fetchAudioInputEnable` at L223.
-- Full `inferAudioFormat` port including `HIRES_QUALITY` set + `qualityHiRes` folding — this is data-layer, not UI; without it `actualQuality` is dead code.
-
-### 2. Execution (deepseek-v4-pro via Hermes)
-
-All 24 edits byte-exact against the plan. 6 files:
-
-| File | Change |
-|---|---|
-| `parse.ts` | `decodeTimingSec` (bea000f fixed per-response form) + hoisted `timing` call + UDisk `udisklocal` guard as early return |
-| `upnp.ts` | `actualQuality` on `GetInfoExResult` + mode-key fixes (STATION→12, RADIO→13) |
-| `commands.ts` | `actualQuality` on `MetaInfo`/`EMPTY_META`/`fetchMetaInfo` return/`fetchTrackMeta` wire + trailing-space `m["albumArtURI "]` key fallback via `artStr` pattern + `un_known` art token + `"albumArtURI "` (trailing space) added to `pickPic` key list |
-| `now-playing-info.ts` | `INTERNAL_VENDOR_NAMES += "udisklocal"` + 5-arg `inferAudioFormat` with `HIRES_QUALITY = new Set(["HI_RES", "HI_RES_LOSSLESS", "UHD", "7", "27"])` folded into `hiRes` computation |
-| `capabilities.ts` | `INPUT_KEEP_REGARDLESS` set + `deriveSources` 3rd `inputEnable` arg + prune body + `fetchAudioInputEnable` added to `Promise.all` (now 5 or 6 entries depending on fork's Headphone-EQ-exclusion state) |
-| `snapshot.ts` | `actualQuality: null` in `emptyMeta` + `meta.actualQuality` as 5th arg to `inferAudioFormat`, threaded around FORK DELTA bitRate backfill and multiroom mirror |
-
-`types.ts` verified as no-op (correctly — every c68c950 types.ts hunk lands elsewhere or is excluded).
-
-### 3. Verification ladder (all green)
-
-- `npm run typecheck` — clean
-- `npm run lint` — 0 errors (1 pre-existing warning, unrelated)
-- `docker compose up -d --build` — fresh build, not cached; container Up (healthy)
-- `GET :39446/api/health` → `{"ok":true}`
-- Exclusion audit: `acoustic`, `outputs.push(7)`, `outputNames`, `outputCoexist` (as an introduction — it appears only as a pre-existing identifier on a line that was extended) all correctly absent from added lines. All 7 fold-ins present.
-- **Runtime evidence:** scrobbler live immediately post-build; Elsiane — Morphing scrobbled ✓. That single track exercises `parsePlayerStatus` (with new `decodeTimingSec`), `parseGetInfoEx` (with new `actualQuality`), `fetchTrackMeta` (with new `actualQuality` wire), `inferAudioFormat` (with new 5-arg signature and `HIRES_QUALITY` fold), and `getDeviceSnapshot` (with `meta.actualQuality` pass-through) all in one code path.
-
-### 4. Environment drift found and fixed
-
-WSL repo-local git identity was empty when Hermes went to commit. The Hermes preamble said it was set during calibration; that turned out to be stale (or reset). Hermes re-established `Greg T <me@gregthibodeaux.com>` before committing. **Action item:** `HERMES_PREAMBLE_wiim-dashboard.md` should either (a) drop the assertion that identity is pre-set and instead direct Hermes to verify/set it each session, or (b) add a per-session identity-check gate. Not addressed this session; carry forward.
+- **Docker compose service is `wiim-dashboard`, not `web`.** `docker compose exec web …` fails ("no such service"); use `docker compose exec wiim-dashboard …`. The spec's commands referenced `web` — corrected live.
+- **`tsc`/`eslint` not in the runner image** (slim production stage, devDeps pruned). Ran them on the host via `./node_modules/.bin/{tsc,eslint}` (host `node_modules` present). The `next build` compile inside Docker is itself a strong gate.
+- **Runtime device smoke is auth-gated.** `/api/devices` requires session auth — headless curl can't drive it. Hardware smoke must be run from the UI.
+- The 44a-noted WSL-git-identity staleness did **not** recur this session — identity was present and correct. (44a action item on `HERMES_PREAMBLE_wiim-dashboard.md` remains open.)
 
 ## Remaining close work
 
-**Hardware smoke test — PASSED 2026-09-16.** Full details in the archived `.done.md`; short version above in tl;dr. Two observations captured for forward scope; no regressions; no revert needed.
+**Hardware smoke test — PENDING (Greg, from the UI).** Verify on Ultra + Pro:
+- **USB source-card fix (bea000f):** with a USB drive attached, playing a local file → source card / badge resolves to USB (`udisk`), not a fallback. Modes 11/21 → udisk.
+- **Radio timeline (c68c950 UI + Qwen Audit Finding A):** internet radio (vTuner/TuneIn, modes 12/13) → `sourceKey="wifi"` → `isMediaSource=true` → `isPhysicalInput=false` → **timeline RENDERS while playing** (this is the corrected expectation — the spec's original "radio → timeline hidden" was wrong; the auditor caught it). Hide-timeline-when-stopped applies only to physical/line-in sources.
+- **DLNA `<res>` fallback (0472b2b):** play DLNA/UPnP content where the server omits top-level sample-rate/bit-depth — quality fields fall back to `<res>` attributes; no crash, sane values.
+- **Transport-controls-per-source (6e5c6af + c68c950):** prev/next/seek enabled only for queue/media sources (wifi/udisk), disabled appropriately for physical inputs.
+- **No regressions** on normal Spotify/Amazon/Plex playback (quality badge, scrobbler).
 
 **Post-smoke — decisions for Greg:**
-- Delete `hermes/round44a-c68c950-extraction` (`git branch -d`; the merge commit's second-parent tip preserves the SHA)
-- Keep or delete `backup/pre-44a-c68c950` (probably keep for a session or two)
+- Delete `hermes/round44b-snapshot-batch` (`git branch -d`; merge commit's second-parent preserves the SHA)
+- Keep or delete `backup/pre-44b-snapshot-batch` and `backup/pre-44a-c68c950`
+- Whether to push `main` (3 commits ahead of origin)
 - Session-close commit of `M _showa/SESSION_HANDOFF.md` (this file)
-
-**Pending Opus/Hermes:**
-- Hermes: `_showa/README.md` no-drift verify — **DONE** (2026-09-15). Three mechanical checks: merged diff = 6 files all under `src/lib/wiim/*`; `_showa/` has no `lib/` tree by design; zero mirror-bearing paths touched. **No drift edit needed**; the historical changelog-backfill gap (Round 43 + Round 44a entries) is a separate open item, tracked below.
-- Hermes: `tasks/round44a.done.md` — **DONE** (2026-09-15, 6,328 bytes after smoke append). Contains full SHA table, per-file diff, exclusion audit, verification ladder, runtime evidence, WSL git-identity drift note, smoke-test findings incl. Observations A/B.
-- Opus: archive move — **DONE 2026-09-16**. Three files moved to `WIIM/archive/2026-09-15-round44a-c68c950-data-layer.{done,approved,audit-qwen}.md`. `tasks/` directory now empty. Approved plan kept for provenance since the multi-model pipeline artifact is new to this archive.
+- Archive move of `tasks/round44b.{approved,done}.md` + `tasks/round44b-audit-qwen.md` → `archive/2026-09-16-round44b-*` (per 44a pattern)
 
 ## Forward scope — standing candidates
 
-Ordered by priority for next session:
-
-1. **Round 44b spec-write.** Snapshot batch (`bea000f` deriveSource-only + `0472b2b` DIDL-Lite res attrs + `6e5c6af` MEDIA_SOURCE_KEYS + c68c950 UI-layer). Dual-write on `now-playing-card.tsx`. Blocking dep on 44a is now resolved. **Include in scope:** smoke Observation A — the UHD/Master/Qobuz-tier service-specific badge Greg wants (WiiM Home phone app shows one; fork currently normalizes every hi-res tier to "Hi-Res Lossless" in `StreamInfoLine`). c68c950's UI-layer already includes "hi-res quality-tag mapping in now-playing-card.tsx" so this may fold in naturally; spec-write should verify and, if the upstream mapping doesn't surface the tag distinctly, explicitly add a fork-specific `actualQuality`/`service` → badge display. Sonnet-spec-in-chat per regrouping doc unless pipeline expansion is elected (44a run was clean; expansion is defensible).
-2. **Rounds 44c (EQ cluster) and 44d (trusted artwork hosts).** Fully independent of 44a/44b. 44d is the second highest-stakes round after 44a and the second natural pipeline candidate (security-adjacent architectural work + `isPlexArtUrl` shim retirement + DB migration + settings UI).
-3. **Round 44e decision.** `6c8b37d` in-place IP edit — Greg still deferred; low-cost win if adopted, good Hermes-spec calibration candidate.
-4. **`HERMES_PREAMBLE_wiim-dashboard.md` fix.** WSL git identity assertion needs updating per section above.
-5. **Smoke Observation B (CustomRadio → "Radio" badge).** If desired: prefer `vendor=="CustomRadio"` to override `mode=10` → "Radio" label. Small fork-specific enhancement, not urgent. Design question worth thinking about — stricter accuracy (Network) vs. friendlier UX (Radio) for custom URL streams.
-6. **Upstream PR of `.env.example` TRUST_PROXY doc improvement.** Still standing; not urgent.
-7. **Companion project `gthibo/wiim-universal-remote`.** Out of this repo's queue.
-8. **EQ response curve deferred features.** Feature-forward not sync-forward.
-
-### README changelog gaps — carried forward, still not backfilled
-
-`_showa/README.md` changelog still stops at "Post Round 44 — 8fe1f64 lyrics-nudge manual port." Missing entries: post-Round-44 `e61b4b9` USB output, USB chain follow-on `b27b2f0`, `.env.example` TRUST_PROXY doc, Round 43 scrobbler fix (`70b77de`), Round 44a (this session). This gap is **separate from drift** — Hermes's 2026-09-15 no-drift verify confirmed no `src/`/`_showa/` divergence, but the changelog backfill is historical record, not drift detection. Remains a next-session call.
+1. **Round 44c (EQ cluster) and 44d (trusted artwork hosts).** Fully independent. 44d is the higher-stakes round (security-adjacent + `isPlexArtUrl` shim retirement + DB migration + settings UI) — natural next pipeline candidate.
+2. **Round 44e decision.** `6c8b37d` in-place IP edit — still deferred; low-cost, good calibration candidate.
+3. **Smoke Observation A (44a, carried):** UHD/Master/Qobuz-tier service-specific badge (WiiM Home app shows one; fork normalizes hi-res to "Hi-Res Lossless"). c68c950's UI-layer landed in 44b — **re-check whether the upstream hi-res quality-tag mapping now surfaces the tag distinctly**; if not, add a fork-specific `actualQuality`/`service` → badge display.
+4. **Smoke Observation B (44a, carried):** CustomRadio streams render "Network" (mode 10) not "Radio" (12/13). Design question, not urgent.
+5. **`HERMES_PREAMBLE_wiim-dashboard.md` fix** (44a, carried): WSL git-identity assertion — verify/set per session.
+6. **README changelog backfill** (44a, carried): `_showa/README.md` changelog still stops at "Post Round 44 — 8fe1f64 lyrics-nudge manual port." Missing: e61b4b9, b27b2f0, TRUST_PROXY doc, Round 43 scrobbler fix, Round 44a, Round 44b. Historical record, not drift.
+7. **Upstream PR of `.env.example` TRUST_PROXY doc.** Standing.
+8. **Companion `gthibo/wiim-universal-remote`.** Out of this repo's queue.
+9. **EQ response curve deferred features.** Feature-forward.
 
 ## Canonical reference documents
 
 Not tracked in this repo:
 
 - `C:\Users\mrthi\Documents\WIIM\round44-upstream-recon-report.md` — authoritative recon
-- `C:\Users\mrthi\Documents\WIIM\round44-regrouping.md` — **updated this session** — 44a marked LANDED, 44b bea000f scope-reduction note added
-- `C:\Users\mrthi\Documents\WIIM\round44a-design-packet.md` — Opus design packet (stays in root pending regrouping-doc-style promotion when 44 series closes)
-- `C:\Users\mrthi\Documents\WIIM\archive\2026-09-15-round44a-c68c950-data-layer.approved.md` — **archived 2026-09-16** — Opus-adjudicated plan (supersedes Kimi K3's initial draft, folds all 10 Qwen findings)
-- `C:\Users\mrthi\Documents\WIIM\archive\2026-09-15-round44a-c68c950-data-layer.done.md` — **archived 2026-09-16** — exec + smoke record (Hermes deepseek-v4-pro)
-- `C:\Users\mrthi\Documents\WIIM\archive\2026-09-15-round44a-c68c950-data-layer-audit-qwen.md` — **archived 2026-09-16** — audit evidence (Qwen3.8 Max)
-- `C:\Users\mrthi\Documents\WIIM\tasks\` — empty after archive move; next round's `.plan.md` lands here
+- `C:\Users\mrthi\Documents\WIIM\round44-regrouping.md` — 44a LANDED, 44b bea000f scope-reduction note
+- `C:\Users\mrthi\Documents\WIIM\round44b-design-packet.md` — Opus design packet (44b)
+- `C:\Users\mrthi\Documents\WIIM\tasks\round44b.approved.md` — Opus-adjudicated 44b plan (this session; archive after smoke)
+- `C:\Users\mrthi\Documents\WIIM\tasks\round44b-audit-qwen.md` — Qwen3.8 Max 44b audit (APPROVABLE, 1 must-fix + 3 minor — all adjudicated into the plan)
+- `C:\Users\mrthi\Documents\WIIM\archive\` — closed `.done`/`.approved`/`-audit` pairs (44a archived 2026-09-16)
 - `C:\Users\mrthi\Documents\WIIM\workflow.md` — Hermes/Opus workflow contract
-- `C:\Users\mrthi\Documents\WIIM\HERMES_PREAMBLE.md` — root preamble
-- `C:\Users\mrthi\Documents\WIIM\HERMES_PREAMBLE_wiim-dashboard.md` — project preamble; **carries a stale WSL git identity assertion** — see remaining close work
-- `C:\Users\mrthi\Documents\WIIM\templates\plan-template.md` — Hermes task plan template
-- `C:\Users\mrthi\Documents\WIIM\archive\` — closed `.done.md` + audit pairs
+- `C:\Users\mrthi\Documents\WIIM\HERMES_PREAMBLE.md` / `HERMES_PREAMBLE_wiim-dashboard.md` — preambles (latter has the stale git-identity note, carried)
+- `C:\Users\mrthi\Documents\WIIM\templates\plan-template.md` — task plan template
 
 ## Standing operational rules
 
 Refer to project memory (`ways-of-working.md`) — unchanged this session.
+
+---
+
+## Previous round — Round 44a (landed 2026-09-16, merge `0100854`)
+
+Round 44a — the c68c950 data-layer subset — landed via merge commit `0100854` and **passed hardware smoke 2026-09-16**. 6 files, +91/−14, all 24 edits byte-exact. Hi-res tier confirmed live on Amazon UHD (`actualQuality="UHD"` → `qualityHiRes=true` → `tier="hires"`); `actualQuality` null-handling graceful on Plex cast; `"LOSSLESS"` on Spotify. No regressions. Archived to `WIIM/archive/2026-09-15-round44a-c68c950-data-layer.{done,approved,audit-qwen}.md`. Full 44a session detail is in the prior handoff revision (git history of this file) and the archived `.done.md`.
+
+44a's key carry-overs into 44b (all landed): `decodeTimingSec` (bea000f per-response form), UDisk guard, `actualQuality` thread, `"12"`/`"13"` string mode keys. 44b's `bea000f` scope was reduced to the `deriveSource` hunk only, because 44a had already landed the per-response `decodeTimingSec` form.
