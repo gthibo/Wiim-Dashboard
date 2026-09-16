@@ -323,8 +323,21 @@ export function NowPlayingCard({
   // Transport capability per source (#12): line inputs have no track concept;
   // radio can't skip/seek; cast/AirPlay/BT have no in-app queue (shuffle/repeat).
   const svcKey = player.service?.key ?? null;
+  // Vendor-string fallback for WiiM firmware that never sets sourceMode 12/13.
+  // Verified on Ultra 5.2.827567 (2026-09-16): vTuner and CustomRadio both land
+  // on mode 10 (vendor "vTuner" / "CustomRadio"), and only TuneIn's art host
+  // lets the svcKey path fire — leaving vTuner and CustomRadio ungated without
+  // this. `newtunein` is captured too (TuneIn's own vendor string) as a belt
+  // for firmware where the art host ever fails to match.
+  const vendorLc = player.vendor?.toLowerCase() ?? null;
   const isRadio =
-    svcKey === "tunein" || svcKey === "vtuner" || player.sourceMode === "12" || player.sourceMode === "13";
+    svcKey === "tunein" ||
+    svcKey === "vtuner" ||
+    player.sourceMode === "12" ||
+    player.sourceMode === "13" ||
+    vendorLc === "vtuner" ||
+    vendorLc === "customradio" ||
+    vendorLc === "newtunein";
   const isLinePhysical = isPhysicalInput && player.sourceKey !== "bluetooth";
   const timelineActive = player.state === "playing" || player.state === "paused";
   const canSkip = !isLinePhysical && !isRadio; // network + Bluetooth (AVRCP)
