@@ -28,7 +28,7 @@ import { MarqueeText } from "@/components/ui/marquee-text";
 import { useToast } from "@/components/toast";
 import { apiSend, apiGet, ApiError } from "@/lib/client/api";
 import { formatTime, cn } from "@/lib/utils";
-import { SOURCES } from "@/lib/wiim/constants";
+import { SOURCES, MEDIA_SOURCE_KEYS } from "@/lib/wiim/constants";
 import { DynIcon } from "@/components/ui/icon";
 import { ServiceLogo } from "@/components/ui/service-logo";
 import { VinylDisc } from "./vinyl-disc";
@@ -300,10 +300,12 @@ export function NowPlayingCard({
       (sourceLabels?.[player.sourceKey]?.trim() ||
         autoSourceLabels?.[player.sourceKey]?.trim())) ||
     player.sourceLabel;
-  // Physical inputs (Optical, Line-in, Coax, HDMI, Phono…) don't carry cover
-  // art — show the source icon instead of a stale/blank image. Only
-  // network/streaming sources display album art.
-  const isPhysicalInput = !!player.sourceKey && player.sourceKey !== "wifi";
+  // Line inputs (Optical, Line-in, Coax, HDMI, Phono…) don't carry cover art —
+  // show the source icon instead of a stale/blank image. Media sources (network,
+  // USB drive, CD) do: art, a timeline and a queue. USB/CD are local but are
+  // still media, so they must not fall into the line-input branch.
+  const isMediaSource = player.sourceKey == null || MEDIA_SOURCE_KEYS.has(player.sourceKey);
+  const isPhysicalInput = !isMediaSource;
   const showArt = !!player.albumArt && !isPhysicalInput;
   // Stream-info block (service / format) — only network & Bluetooth have spare
   // vertical space beneath the cover for it.
@@ -318,6 +320,19 @@ export function NowPlayingCard({
     player.service && player.service.key === "network" && activePresetName
       ? { ...player.service, name: activePresetName }
       : player.service;
+  // Transport capability per source (#12): line inputs have no track concept;
+  // radio can't skip/seek; cast/AirPlay/BT have no in-app queue (shuffle/repeat).
+  const svcKey = player.service?.key ?? null;
+  const isRadio =
+    svcKey === "tunein" || svcKey === "vtuner" || player.sourceMode === "12" || player.sourceMode === "13";
+  const isLinePhysical = isPhysicalInput && player.sourceKey !== "bluetooth";
+  const timelineActive = player.state === "playing" || player.state === "paused";
+  const canSkip = !isLinePhysical && !isRadio; // network + Bluetooth (AVRCP)
+  const canQueue =
+    player.sourceKey != null &&
+    MEDIA_SOURCE_KEYS.has(player.sourceKey) &&
+    !isRadio &&
+    !["airplay", "dlna", "qplay"].includes(svcKey ?? "");
   // Tint the card + glow the cover with the album art's dominant colour,
   // extracted from the displayed <img> on load (reliable — no separate load).
   const [albumColor, setAlbumColor] = useState<RGB | null>(null);
@@ -753,9 +768,10 @@ export function NowPlayingCard({
             <p className="truncate font-mono text-xs text-muted-foreground/70">{player.album}</p>
           )}
 
-          {/* Progress — only for real tracks. Physical inputs (optical/line-in)
-              have no seekable timeline, so the slider is hidden there. */}
-          {!isPhysicalInput && (
+          {/* Progress — only for real tracks that are actually playing/paused.
+              Physical inputs have no seekable timeline; a stopped/loading source
+              would otherwise show a frozen, stale position (#7). */}
+          {!isPhysicalInput && timelineActive && (
             <div className="mt-2">
               <Slider
                 value={Math.min(pos, player.duration || pos)}
@@ -827,30 +843,36 @@ export function NowPlayingCard({
                 with no housing whatsoever, matching shuffle/repeat exactly.
                 The only thing in this row that's a real "object" is the
                 play/pause dome. */}
-            <button
-              onClick={toggleShuffle}
-              className={cn(
-                "focus-ring grid size-9 shrink-0 place-items-center transition",
-                shuffle ? "text-[hsl(var(--faceplate)/0.9)]" : "text-[hsl(var(--faceplate)/0.45)] hover:text-[hsl(var(--faceplate)/0.7)]",
-              )}
-              aria-label="Shuffle"
-            >
-              <Shuffle className="size-5" style={ICON_SHADOW} />
-            </button>
+            {canQueue ? (
+              <button
+                onClick={toggleShuffle}
+                className={cn(
+                  "focus-ring grid size-9 shrink-0 place-items-center transition",
+                  shuffle ? "text-[hsl(var(--faceplate)/0.9)]" : "text-[hsl(var(--faceplate)/0.45)] hover:text-[hsl(var(--faceplate)/0.7)]",
+                )}
+                aria-label="Shuffle"
+              >
+                <Shuffle className="size-5" style={ICON_SHADOW} />
+              </button>
+            ) : (
+              <div className="size-9 shrink-0" aria-hidden="true" />
+            )}
 
             <div className="flex shrink-0 items-center gap-6">
-              <button
-                onClick={() => void send({ action: "prev" })}
-                disabled={busy}
-                className="focus-ring grid size-10 place-items-center text-[hsl(var(--faceplate)/0.75)] transition hover:text-[hsl(var(--faceplate))] active:translate-y-px"
-                aria-label="Previous"
-              >
-                {/* SHOWA RE-SKIN: strokeWidth={0} — lucide draws a strokeWidth=2
-                    outline in currentColor by default even on a filled icon,
-                    which at this taupe tone showed as a faint border/ridge
-                    around the glyph (flagged by Greg). Pure fill, no stroke. */}
-                <SkipBack className="size-7 fill-current" strokeWidth={0} style={ICON_SHADOW} />
-              </button>
+              {canSkip && (
+                <button
+                  onClick={() => void send({ action: "prev" })}
+                  disabled={busy}
+                  className="focus-ring grid size-10 place-items-center text-[hsl(var(--faceplate)/0.75)] transition hover:text-[hsl(var(--faceplate))] active:translate-y-px"
+                  aria-label="Previous"
+                >
+                  {/* SHOWA RE-SKIN: strokeWidth={0} — lucide draws a strokeWidth=2
+                      outline in currentColor by default even on a filled icon,
+                      which at this taupe tone showed as a faint border/ridge
+                      around the glyph (flagged by Greg). Pure fill, no stroke. */}
+                  <SkipBack className="size-7 fill-current" strokeWidth={0} style={ICON_SHADOW} />
+                </button>
+              )}
 
               {/* SHOWA RE-SKIN: play/pause dome — FOUR rounds of CSS
                   gradient layering got progressively closer but never matched
@@ -890,30 +912,36 @@ export function NowPlayingCard({
                 </span>
               </button>
 
-              <button
-                onClick={() => void send({ action: "next" })}
-                disabled={busy}
-                className="focus-ring grid size-10 place-items-center text-[hsl(var(--faceplate)/0.75)] transition hover:text-[hsl(var(--faceplate))] active:translate-y-px"
-                aria-label="Next"
-              >
-                <SkipForward className="size-7 fill-current" strokeWidth={0} style={ICON_SHADOW} />
-              </button>
+              {canSkip && (
+                <button
+                  onClick={() => void send({ action: "next" })}
+                  disabled={busy}
+                  className="focus-ring grid size-10 place-items-center text-[hsl(var(--faceplate)/0.75)] transition hover:text-[hsl(var(--faceplate))] active:translate-y-px"
+                  aria-label="Next"
+                >
+                  <SkipForward className="size-7 fill-current" strokeWidth={0} style={ICON_SHADOW} />
+                </button>
+              )}
             </div>
 
-            <button
-              onClick={cycleRepeat}
-              className={cn(
-                "focus-ring grid size-9 shrink-0 place-items-center transition",
-                repeat !== "off" ? "text-[hsl(var(--faceplate)/0.9)]" : "text-[hsl(var(--faceplate)/0.45)] hover:text-[hsl(var(--faceplate)/0.7)]",
-              )}
-              aria-label={repeat === "one" ? "Repeat one" : repeat === "all" ? "Repeat all" : "Repeat off"}
-            >
-              {repeat === "one" ? (
-                <Repeat1 className="size-5" style={ICON_SHADOW} />
-              ) : (
-                <Repeat className="size-5" style={ICON_SHADOW} />
-              )}
-            </button>
+            {canQueue ? (
+              <button
+                onClick={cycleRepeat}
+                className={cn(
+                  "focus-ring grid size-9 shrink-0 place-items-center transition",
+                  repeat !== "off" ? "text-[hsl(var(--faceplate)/0.9)]" : "text-[hsl(var(--faceplate)/0.45)] hover:text-[hsl(var(--faceplate)/0.7)]",
+                )}
+                aria-label={repeat === "one" ? "Repeat one" : repeat === "all" ? "Repeat all" : "Repeat off"}
+              >
+                {repeat === "one" ? (
+                  <Repeat1 className="size-5" style={ICON_SHADOW} />
+                ) : (
+                  <Repeat className="size-5" style={ICON_SHADOW} />
+                )}
+              </button>
+            ) : (
+              <div className="size-9 shrink-0" aria-hidden="true" />
+            )}
 
             {/* Volume — moved up into the transport row per Greg's reference
                 screenshot; the slider is the one flex-growing element so it
