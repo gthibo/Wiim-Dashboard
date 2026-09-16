@@ -6,7 +6,7 @@
 
 Round 44b — the snapshot batch + c68c950 UI-layer subset — landed via merge commit `bb94ae4` on `main` and **passed static verification 2026-09-16**. 6 files, +231/−108, all edits byte-exact against the adjudicated plan. Container Up (healthy) after `docker compose up -d --build`. **Static gates green:** typecheck exit 0, lint exit 0 (1 pre-existing warning, `PEQ_RANGE` unused in `eq-response-curve.tsx` — a 44c EQ-cluster file, not touched by 44b). Dual-write parity intact (both now-playing-card.tsx copies `3eb96f7d…`).
 
-**Hardware smoke is PENDING** — the runtime smoke (USB source-card, radio timeline, DLNA `<res>` fallback) requires live devices (Ultra + Pro) and the authenticated UI; `/api/devices` is auth-gated so Hermes couldn't drive it headless. Greg to run the smoke from the UI. Revert recipe below if it fails.
+**Hardware smoke — PARTIAL 2026-09-16 (Greg, live UI).** Radio timeline: **CONFIRMED CORRECT** — renders while playing, hides on pause (matches shipped gate `{!isPhysicalInput && timelineActive &&}`, timelineActive = state playing|paused). USB source-card **SKIPPED** (Greg's Ultra now USB-connected to DAC, no hub — too much PITA to re-cable). DLNA `<res>` fallback / transport gating / no-regressions: **best-effort visual check, pending**. No regressions observed in normal playback so far. — the runtime smoke (USB source-card, radio timeline, DLNA `<res>` fallback) requires live devices (Ultra + Pro) and the authenticated UI; `/api/devices` is auth-gated so Hermes couldn't drive it headless. Greg to run the smoke from the UI. Revert recipe below if it fails.
 
 **No docker runtime errors** in logs post-build. Health `{"ok":true}` on `:39446`.
 
