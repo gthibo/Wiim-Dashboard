@@ -3,6 +3,7 @@ import { guard } from "@/lib/api";
 import { resolveDevice } from "@/lib/device-route";
 import { fetchDeviceInfo, fetchTrackMeta } from "@/lib/wiim/commands";
 import { wiimFetchRaw } from "@/lib/wiim/client";
+import { getArtHosts } from "@/lib/db/settings";
 import { lookupAlbumArt } from "@/lib/artwork/itunes";
 
 export const dynamic = "force-dynamic";
@@ -62,6 +63,7 @@ export async function GET(req: Request, { params }: Params) {
     // verification; connection pinned to checked IP.
     const res = await wiimFetchRaw(url.toString(), {
       deviceHost: artHost,
+      allowHosts: getArtHosts(),
       timeoutMs: 7000,
     });
     if (res.status >= 400 || !res.contentType.startsWith("image/")) return fallback();
