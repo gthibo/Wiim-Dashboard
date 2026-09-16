@@ -158,16 +158,23 @@ export function deriveSource(
     return { sourceMode: "11", sourceLabel: PLAYING_MODE_LABEL["11"] ?? "USB", sourceKey: "udisk" };
   }
   const sourceLabel = PLAYING_MODE_LABEL[mode] ?? "Unknown";
-  const physicalSourceKey = SOURCES.find((s) => s.modes.includes(mode))?.key ?? null;
+  // Match a specific input FIRST: the "wifi" entry claims every network mode,
+  // and a few of those belong to a more specific source — modes 11/21 are the
+  // USB drive (the device labels them "USB"), which would otherwise resolve to
+  // the network source and light up the wrong button in the Source card.
+  const physicalSourceKey =
+    SOURCES.find((s) => s.key !== "wifi" && s.modes.includes(mode))?.key ?? null;
   let sourceKey: string | null;
-  if (NETWORK_PLAY_MODES.has(mode)) {
+  if (physicalSourceKey) {
+    sourceKey = physicalSourceKey;
+  } else if (NETWORK_PLAY_MODES.has(mode)) {
     sourceKey = "wifi";
-  } else if (vendor && !physicalSourceKey) {
+  } else if (vendor) {
     // A vendor push on a non-physical mode is a network/cast session — treat it
     // as the network source so art / stream-info / service detection light up.
     sourceKey = "wifi";
   } else {
-    sourceKey = physicalSourceKey;
+    sourceKey = null;
   }
   return { sourceMode: mode, sourceLabel, sourceKey };
 }
