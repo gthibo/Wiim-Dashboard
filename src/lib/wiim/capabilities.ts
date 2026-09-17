@@ -3,6 +3,7 @@ import { wiimRequest } from "./client";
 import { Cmd, SOURCES, AMP_PROJECT_HINTS } from "./constants";
 import { safeJson, parseDeviceInfo, parseEqList } from "./parse";
 import { fetchOutputCoexist, fetchAudioInputEnable } from "./commands";
+import { getAcousticCapability } from "./eq";
 import type { DeviceCapabilities, DeviceInfo } from "./types";
 
 function parsePlmSupport(raw: Record<string, unknown>): number {
@@ -70,13 +71,14 @@ export async function detectCapabilities(
     info.temperatureCpu != null ||
     info.temperatureBoard != null;
 
-  // Probe sub-out + output + EQ in parallel (best-effort).
-  const [subText, outText, eqListText, outputCoexist, inputEnable] = await Promise.all([
+  // Probe sub-out + output + EQ + acoustics in parallel (best-effort).
+  const [subText, outText, eqListText, outputCoexist, inputEnable, acoustic] = await Promise.all([
     wiimRequest(ip, Cmd.getSub, { timeoutMs: 5000 }).then((r) => r.text).catch(() => ""),
     wiimRequest(ip, Cmd.getOutput, { timeoutMs: 5000 }).then((r) => r.text).catch(() => ""),
     wiimRequest(ip, Cmd.eqList, { timeoutMs: 5000 }).then((r) => r.text).catch(() => ""),
     fetchOutputCoexist(ip).catch(() => ({}) as Record<number, number[]>),
     fetchAudioInputEnable(ip).catch(() => ({}) as Record<string, boolean>),
+    getAcousticCapability(ip).catch(() => null),
   ]);
 
   // EQ_support is a flag/version string (e.g. "1" or "EqNp_ver_2.0"), so treat
@@ -85,7 +87,7 @@ export async function detectCapabilities(
   const eqSupportFlag =
     eqSupport != null &&
     !["0", "", "false", "none", "no", "off"].includes(String(eqSupport).trim().toLowerCase());
-  const equalizer = eqSupportFlag || parseEqList(eqListText).length > 0;
+  const equalizer = eqSupportFlag || parseEqList(eqListText).length > 0 || acoustic != null;
 
   const subJson = safeJson<Record<string, unknown>>(subText);
   // Both real and sub-less devices answer getSubLPF, so level/status presence
@@ -132,6 +134,7 @@ export async function detectCapabilities(
       outputs,
       isAmp,
       outputCoexist,
+      acoustic,
     },
   };
 }

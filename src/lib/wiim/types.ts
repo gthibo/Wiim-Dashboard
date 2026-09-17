@@ -118,7 +118,7 @@ export type PeqChannelMode = "stereo" | "lr";
 export type PeqChannel = "stereo" | "left" | "right";
 
 export interface ParametricBand {
-  letter: string; // a–l (firmware), a–j (UI)
+  letter: string; // a–j (a–l on firmware that exposes 12 bands)
   mode: number; // -1 off, 0 LS, 1 PK, 2 HS, 3 LP, 5 HP (4 unused)
   frequency: number; // Hz
   q: number;
@@ -159,6 +159,27 @@ export interface PresetItem {
   hasArt: boolean; // artwork available (served via the preset-art proxy)
 }
 
+/** Parsed `GetAcousticCapability` — WiiM LV2 EQ/acoustics descriptor. null when
+ *  the device doesn't expose it (older/OEM firmware answers "unknown"/Failed). */
+export interface AcousticCapability {
+  /** parametric filter tokens the firmware supports, e.g. ["OFF","LS","PK","HS","LP","HP"]. */
+  peqFilters: string[];
+  graphic: boolean;
+  parametric: boolean;
+  roomCorrection: boolean;
+  /** dedicated headphone-output EQ available (top-level "HeadphoneEQ" key present). */
+  headphoneEq: boolean;
+  subLpf: boolean;
+  /** micro output-delay / time-alignment support; null if absent. */
+  outputDelay: {
+    enableMicroDelay: boolean;
+    perOutputDelay: boolean;
+    minUs: number;
+    maxUs: number;
+    stepUs: number;
+  } | null;
+}
+
 export interface DeviceCapabilities {
   /** temperature fields present (amp models). */
   temperature: boolean;
@@ -177,6 +198,8 @@ export interface DeviceCapabilities {
   isAmp: boolean;
   /** output hw id → hw ids it plays through simultaneously (coexistMode). */
   outputCoexist: Record<number, number[]>;
+  /** GetAcousticCapability profile (null if the device doesn't expose it). */
+  acoustic: AcousticCapability | null;
 }
 
 /** Everything the dashboard needs for one device in a single poll. */

@@ -33,9 +33,43 @@ export const GRAPHIC_BANDS: { param: string; label: string }[] = [
 
 export const GRAPHIC_GAIN = { min: -12, max: 12, step: 0.5 } as const;
 
-/** Parametric: 12 bands a–l in firmware, 10 (a–j) shown in the UI. */
-export const PEQ_LETTERS_ALL = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l"] as const;
-export const PEQ_LETTERS = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j"] as const;
+/**
+ * Parametric band letters the firmware may expose. Devices shipped with 10
+ * bands (a–j); WiiM's mid-2026 firmware (Ultra 5.2.8x) answers with 12 (a–l).
+ * The rendered set comes from what the device actually lists — see
+ * `toBands` in eq.ts — so this is the *accepted* set, not the count.
+ */
+export const PEQ_LETTERS = [
+  "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l",
+] as const;
+
+/**
+ * The 10 bands every supported firmware has. Always rendered, even if a device
+ * omits a band from its read (a band that's off can come back sparse), so the
+ * user can never lose a band from the UI — only gain the newer k/l.
+ */
+export const PEQ_LETTERS_BASELINE: readonly string[] = PEQ_LETTERS.slice(0, 10);
+
+const PEQ_LETTER_SET: ReadonlySet<string> = new Set(PEQ_LETTERS);
+const PEQ_PARAM_KEY = /^([a-z])_(mode|freq|q|gain)$/;
+
+/**
+ * Which parametric bands a device exposes, read from the `param_name`s it
+ * answered with (`a_mode`, `a_freq`, …) instead of assumed: 10 bands (a–j) on
+ * older firmware, 12 (a–l) on WiiM's mid-2026 firmware.
+ *
+ * Unioned with the 10-band baseline, so a device can only ever *add* bands to
+ * the UI — a sparse read (a band that's off coming back without params) must
+ * not make its row disappear.
+ */
+export function peqLettersFrom(paramNames: Iterable<string>): readonly string[] {
+  const found = new Set<string>();
+  for (const key of paramNames) {
+    const hit = PEQ_PARAM_KEY.exec(key);
+    if (hit && PEQ_LETTER_SET.has(hit[1]!)) found.add(hit[1]!);
+  }
+  return PEQ_LETTERS.filter((l) => found.has(l) || PEQ_LETTERS_BASELINE.includes(l));
+}
 
 /**
  * Per-band colour ramp for the visible bands a–j, warm→cool. Faceplate-
@@ -43,7 +77,7 @@ export const PEQ_LETTERS = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j"] as
  * primary and an amber/olive middle into tape-teal, all at moderate saturation
  * and mid lightness so the set reads as one family against the walnut. Anchored
  * on the locked tokens — rust #C64C1A (hsl 17 77 44), tape teal #2E7D7A
- * (hsl 178 46 33), velvet #7A2424 (hsl 0 54 31). Indexed to PEQ_LETTERS so a
+ * (hsl 178 46 33), velvet #7A2424 (hsl 0 54 31). Indexed to PEQ_LETTERS_BASELINE so a
  * given letter is ALWAYS the same colour. Shared by the response-curve plot
  * (lines + dots) and the parametric row letters, so the panel reads as one
  * legend. Off/disabled rows deliberately do NOT use these — see bandColor().
@@ -61,10 +95,11 @@ export const BAND_COLORS: string[] = [
   "hsl(196 44% 46%)", // j — cool blue-teal
 ];
 
-/** Colour for a band letter, stable regardless of array order. Returns the
- *  ramp colour for a–j; anything else (k/l/unknown) falls back to rust. */
+/** Indexed to `PEQ_LETTERS_BASELINE` so a–j letters keep their locked colour
+ *  regardless of firmware band count. Returns the ramp colour for a–j;
+ *  anything else (k/l/unknown) falls back to rust. */
 export function bandColor(letter: string): string {
-  const idx = (PEQ_LETTERS as readonly string[]).indexOf(letter);
+  const idx = PEQ_LETTERS_BASELINE.indexOf(letter);
   return idx >= 0 ? BAND_COLORS[idx] : "hsl(var(--primary))";
 }
 
@@ -82,6 +117,9 @@ export const PEQ_RANGE = {
   gainMax: 12,
 } as const;
 
+// Parametric filter types → device `<band>_mode` value. Mapping confirmed on a
+// real WiiM Ultra (via rustywiim's MITM table): note the gap — 4 is unused.
+// Low/High-Pass are slope filters: the device ignores their gain.
 export const PEQ_MODES: { value: number; label: string }[] = [
   { value: -1, label: "Off" },
   { value: 0, label: "Low Shelf" },
@@ -90,6 +128,9 @@ export const PEQ_MODES: { value: number; label: string }[] = [
   { value: 3, label: "Low Pass" },
   { value: 5, label: "High Pass" },
 ];
+
+/** Filter modes whose gain the device ignores (slope filters). */
+export const PEQ_GAIN_INDEPENDENT_MODES = new Set([3, 5]);
 
 export const CHANNEL_MODE_STEREO = "Stereo";
 

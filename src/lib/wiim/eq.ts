@@ -5,11 +5,13 @@ import {
   EqCmd,
   EQ_PLUGIN,
   GRAPHIC_BANDS,
-  PEQ_LETTERS_ALL,
+  peqLettersFrom,
+  PEQ_LETTERS,
   PEQ_DEFAULT_FREQ,
   CHANNEL_MODE_STEREO,
 } from "./eq-constants";
 import type {
+  AcousticCapability,
   EqType,
   GraphicBand,
   ParametricBand,
@@ -64,7 +66,8 @@ function parseGraphic(raw: RawEq): { name: string; bands: GraphicBand[] } {
 
 function toBands(arr: { param_name?: string; value?: number }[]): ParametricBand[] {
   const m = bandMapFrom(arr);
-  return PEQ_LETTERS_ALL.map((l) => ({
+  // Band count follows what the device answered with (10 or 12 bands).
+  return peqLettersFrom(m.keys()).map((l) => ({
     letter: l,
     mode: Math.round(m.get(`${l}_mode`) ?? 1),
     frequency: m.get(`${l}_freq`) ?? PEQ_DEFAULT_FREQ[l] ?? 1000,
@@ -99,6 +102,59 @@ function isOn(raw: RawEq | null): boolean {
 /** True if the device exposes the LV2 EQ API at all (kill-switch). */
 export async function eqSupported(ip: string): Promise<boolean> {
   return (await eqCall(ip, EqCmd.getBand(EQ_PLUGIN.graphic), 5000)) !== null;
+}
+
+interface RawAcoustic {
+  status?: string;
+  GEQ?: unknown;
+  PEQ?: { Filters?: unknown };
+  RC?: unknown;
+  HeadphoneEQ?: unknown;
+  SubLPF?: unknown;
+  OutputDelay?: {
+    PerOutputDelay?: boolean;
+    EnableMicroDelay?: boolean;
+    MinDelayUs?: number;
+    MaxDelayUs?: number;
+    StepDelayUs?: number;
+  };
+}
+
+/**
+ * Read `GetAcousticCapability` — the device's EQ/acoustics descriptor (WiiM LV2
+ * models: Ultra / Pro / Amp …). Returns null when the firmware doesn't expose it
+ * (OEM / older devices answer "unknown command" or `{"status":"Failed"}`).
+ * Verified live on a WiiM Ultra (fw 5.2.824843).
+ */
+export async function getAcousticCapability(ip: string): Promise<AcousticCapability | null> {
+  let text: string;
+  try {
+    text = (await wiimRequest(ip, "GetAcousticCapability", { timeoutMs: 5000 })).text;
+  } catch {
+    return null;
+  }
+  if (text.toLowerCase().includes("unknown command")) return null;
+  const j = safeJson<RawAcoustic>(text);
+  if (!j || (typeof j.status === "string" && j.status.toLowerCase() === "failed")) return null;
+  const filters = j.PEQ?.Filters;
+  const od = j.OutputDelay;
+  return {
+    peqFilters: Array.isArray(filters) ? filters.map(String) : [],
+    graphic: j.GEQ != null,
+    parametric: j.PEQ != null,
+    roomCorrection: j.RC != null,
+    headphoneEq: j.HeadphoneEQ != null,
+    subLpf: j.SubLPF != null,
+    outputDelay: od
+      ? {
+          enableMicroDelay: !!od.EnableMicroDelay,
+          perOutputDelay: !!od.PerOutputDelay,
+          minUs: Number(od.MinDelayUs ?? 0),
+          maxUs: Number(od.MaxDelayUs ?? 0),
+          stepUs: Number(od.StepDelayUs ?? 0),
+        }
+      : null,
+  };
 }
 
 /** Read full EQ state (graphic + parametric) for one source. */
@@ -214,7 +270,7 @@ export async function resetParametric(
   channel: PeqChannel,
 ): Promise<void> {
   const eqBand: { param_name: string; value: number }[] = [];
-  for (const l of PEQ_LETTERS_ALL) {
+  for (const l of PEQ_LETTERS) {
     eqBand.push({ param_name: `${l}_mode`, value: 1 });
     eqBand.push({ param_name: `${l}_freq`, value: PEQ_DEFAULT_FREQ[l] ?? 1000 });
     eqBand.push({ param_name: `${l}_q`, value: 1 });

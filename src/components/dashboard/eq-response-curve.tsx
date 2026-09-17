@@ -10,7 +10,7 @@ import {
   type CurvePoint,
   type BandCurve,
 } from "@/lib/wiim/eq-response";
-import { PEQ_RANGE, PEQ_LETTERS, bandColor } from "@/lib/wiim/eq-constants";
+import { PEQ_RANGE, bandColor } from "@/lib/wiim/eq-constants";
 import type { ParametricBand, GraphicBand, PeqChannel } from "@/lib/wiim/types";
 
 /**
@@ -104,9 +104,8 @@ interface Dot {
 /** Band-centre marker dots (parametric only) — static this round, one per
  *  contributing band, colour-matched to its per-band line. */
 function bandDots(bands: ParametricBand[]): Dot[] {
-  const visible = new Set<string>(PEQ_LETTERS);
   return bands
-    .filter((b) => visible.has(b.letter) && b.mode !== -1)
+    .filter((b) => b.mode !== -1)
     .map((b) => {
       // Dot sits at the band's own centre freq, at its own gain (0 for the
       // gain-independent LP/HP modes, which have no meaningful gain).
