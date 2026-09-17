@@ -18,12 +18,11 @@
  *    reset writes 1 — so an untouched band renders with q=0.25. That's the
  *    real device state; the curve reflects it faithfully. `q.max(0.01)`
  *    guards the divide, mirroring rustywiim.
- *  - Parametric curve sums ONLY the visible band set (a–j / PEQ_LETTERS), not
- *    a–l — bands k/l exist in firmware but aren't shown, so they must not
- *    contribute to the drawn curve.
+ *  - Parametric curve sums ALL bands the device supplied (a–j on 10-band firmware, a–l on 12-band).
+ *    Bands come pre-filtered by `peqLettersFrom` at parse time, so no visible-band gate is needed here.
  */
 
-import { PEQ_RANGE, PEQ_LETTERS, GRAPHIC_BANDS } from "./eq-constants";
+import { PEQ_RANGE, GRAPHIC_BANDS } from "./eq-constants";
 import type { ParametricBand, GraphicBand } from "./types";
 
 const SAMPLE_RATE = 48000;
@@ -184,15 +183,12 @@ function logFreqs(nPoints: number): number[] {
 }
 
 /**
- * Parametric response: sum of all VISIBLE bands (a–j) at each log-spaced freq.
- * Bands outside PEQ_LETTERS (k/l) are ignored even if present in the array.
+ * Parametric response: sum of all bands at each log-spaced freq. Bands come pre-filtered by `peqLettersFrom` in `toBands`, so a–j on 10-band firmware and a–l on 12-band firmware are both handled correctly with no extra gate.
  */
 export function parametricCurve(bands: ParametricBand[], nPoints = 200): CurvePoint[] {
-  const visible = new Set<string>(PEQ_LETTERS);
-  const active = bands.filter((b) => visible.has(b.letter));
   return logFreqs(nPoints).map((freq) => {
     let db = 0;
-    for (const band of active) db += bandResponseDb(band, freq);
+    for (const band of bands) db += bandResponseDb(band, freq);
     return { freq, db };
   });
 }
@@ -205,20 +201,19 @@ export interface BandCurve {
 }
 
 /**
- * Per-band responses: one curve per VISIBLE, CONTRIBUTING band, on the SAME
- * log-freq grid as `parametricCurve` (so a sub-curve and the summed curve line
- * up point-for-point). Off bands (mode -1 / unknown) and gain-driven bands
- * sitting at ~0 dB are omitted — they'd only draw a flat line on the baseline.
- * The gain-independent cutoff filters (LP/HP) are always kept, since they
- * shape the curve even at gain 0. Order follows PEQ_LETTERS (a→j), which the
- * component relies on to assign a stable per-letter colour.
+ * Per-band responses: one curve per CONTRIBUTING band, on the SAME log-freq grid
+ * as `parametricCurve` (so a sub-curve and the summed curve line up point-for-point).
+ * Off bands (mode -1 / unknown) and gain-driven bands sitting at ~0 dB are omitted
+ * — they'd only draw a flat line on the baseline. The gain-independent cutoff
+ * filters (LP/HP) are always kept, since they shape the curve even at gain 0.
+ * Output sorted by letter (a–l lexicographic).
  */
 export function perBandCurves(bands: ParametricBand[], nPoints = 200): BandCurve[] {
-  const order = new Map<string, number>(PEQ_LETTERS.map((l, i) => [l, i]));
+  // Alphabetical letter order matches PEQ_LETTERS ordering (a–l) since the
+  // firmware ships bands in that sequence; a stable sort by letter suffices.
   const freqs = logFreqs(nPoints);
   const out: BandCurve[] = [];
   for (const band of bands) {
-    if (!order.has(band.letter)) continue; // k/l and anything unexpected
     const gainIndep = band.mode === MODE_LOW_PASS || band.mode === MODE_HIGH_PASS;
     const known =
       band.mode === MODE_LOW_SHELF ||
@@ -233,7 +228,7 @@ export function perBandCurves(bands: ParametricBand[], nPoints = 200): BandCurve
       points: freqs.map((freq) => ({ freq, db: bandResponseDb(band, freq) })),
     });
   }
-  out.sort((a, b) => (order.get(a.letter)! - order.get(b.letter)!));
+  out.sort((a, b) => (a.letter < b.letter ? -1 : a.letter > b.letter ? 1 : 0));
   return out;
 }
 

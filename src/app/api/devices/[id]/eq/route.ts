@@ -5,7 +5,7 @@ import { parseBody } from "@/lib/validate";
 import { resolveDevice, runDevice } from "@/lib/device-route";
 import { getSourceLabels } from "@/lib/db/settings";
 import { SOURCES } from "@/lib/wiim/constants";
-import { GRAPHIC_BANDS, PEQ_LETTERS_ALL, PEQ_RANGE } from "@/lib/wiim/eq-constants";
+import { GRAPHIC_BANDS, PEQ_LETTERS, PEQ_RANGE } from "@/lib/wiim/eq-constants";
 import {
   eqSupported,
   getSourceState,
@@ -77,7 +77,7 @@ export async function GET(req: Request, { params }: Params) {
 }
 
 const ParamName = z.enum(GRAPHIC_BANDS.map((b) => b.param) as [string, ...string[]]);
-const Letter = z.enum(PEQ_LETTERS_ALL as unknown as [string, ...string[]]);
+const Letter = z.enum(PEQ_LETTERS as unknown as [string, ...string[]]);
 const Type = z.enum(["graphic", "parametric"]);
 const gain = z.number().min(PEQ_RANGE.gainMin).max(PEQ_RANGE.gainMax);
 
@@ -85,7 +85,7 @@ const Body = z.discriminatedUnion("action", [
   z.object({
     action: z.literal("setGraphic"),
     source: z.string().min(1).max(32),
-    bands: z.array(z.object({ param: ParamName, gain })).min(1).max(10),
+    bands: z.array(z.object({ param: ParamName, gain })).min(1).max(GRAPHIC_BANDS.length),
   }),
   z.object({
     action: z.literal("setParametric"),

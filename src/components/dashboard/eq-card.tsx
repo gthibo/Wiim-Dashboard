@@ -12,7 +12,7 @@ import { useToast } from "@/components/toast";
 import { useConfirm, usePrompt } from "@/components/modal";
 import { apiGet, apiSend, ApiError } from "@/lib/client/api";
 import { cn } from "@/lib/utils";
-import { GRAPHIC_GAIN, PEQ_RANGE, PEQ_MODES, PEQ_LETTERS, bandColor } from "@/lib/wiim/eq-constants";
+import { GRAPHIC_GAIN, PEQ_RANGE, PEQ_MODES, PEQ_GAIN_INDEPENDENT_MODES, bandColor } from "@/lib/wiim/eq-constants";
 import type { EqOverview, EqType, ParametricBand, PeqChannel, PeqChannelMode } from "@/lib/wiim/types";
 
 /**
@@ -510,9 +510,6 @@ function ParametricPanel({
   channel: PeqChannel;
   send: (b: Record<string, unknown>) => Promise<void>;
 }) {
-  const visible = bands.filter((b) =>
-    (PEQ_LETTERS as readonly string[]).includes(b.letter),
-  );
   const LABEL = "shrink-0 font-sans text-[10px] uppercase tracking-[0.15em] text-[hsl(var(--faceplate)/0.55)]";
   return (
     <div className="relative z-10 px-6 pb-6 pt-4">
@@ -527,7 +524,7 @@ function ParametricPanel({
         </div>
       </div>
       <div className="relative flex flex-col gap-4">
-        {visible.map((b) => (
+        {bands.map((b) => (
           <PeqRow key={b.letter} band={b} source={source} channel={channel} send={send} />
         ))}
         {/* Single continuous Q/Gain divider spanning every row, rendered once
@@ -574,13 +571,13 @@ function PeqRow({
     void send({ action: "setParametric", source, channel, letter: band.letter, ...params });
 
   const off = band.mode === -1;
-  const isPassFilter = band.mode === 3 || band.mode === 5;
+  const gainNA = PEQ_GAIN_INDEPENDENT_MODES.has(band.mode); // low/high-pass: device ignores gain
 
   return (
-    <div className={cn("flex items-center gap-4", off && "opacity-45")}>
+    <div className="flex items-center gap-4">
       <span
         className="w-5 shrink-0 text-center font-sans text-xs font-semibold uppercase"
-        style={{ color: off ? "hsl(var(--primary))" : bandColor(band.letter) }}
+        style={{ color: off ? "hsl(var(--faceplate)/0.5)" : bandColor(band.letter) }}
       >
         {band.letter}
       </span>
@@ -594,7 +591,7 @@ function PeqRow({
       </div>
 
       <div className="flex flex-1 items-center">
-        <div className="min-w-0 flex-1">
+        <div className={cn("min-w-0 flex-1", off && "opacity-50")}>
           <PeqAxis
             value={q}
             min={PEQ_RANGE.qMin}
@@ -619,16 +616,16 @@ function PeqRow({
             ParametricPanel) runs down its exact middle. */}
         <span className="w-8 shrink-0" />
 
-        <div className={cn("min-w-0 flex-1 transition-opacity", isPassFilter && "pointer-events-none opacity-30")}>
+        <div className={cn("min-w-0 flex-1 transition-opacity", gainNA && "pointer-events-none opacity-30", off && "opacity-50")}>
           <PeqAxis
             value={gain}
             min={PEQ_RANGE.gainMin}
             max={PEQ_RANGE.gainMax}
             scale="linear"
             ticks={GAIN_TICKS}
-            disabled={off || isPassFilter}
+            disabled={off || gainNA}
             padLeft
-            format={(v) => isPassFilter ? "N/A" : `${v > 0 ? "+" : ""}${v.toFixed(1)} dB`}
+            format={(v) => gainNA || off ? "—" : `${v > 0 ? "+" : ""}${v.toFixed(1)} dB`}
             onChange={(v) => {
               setDragging("gain");
               setGain(v);
@@ -658,7 +655,7 @@ function TypeDropdown({
   return (
     <DropdownMenu.Root>
       <DropdownMenu.Trigger asChild>
-        <button type="button" className="focus-ring flex h-8 w-full items-center justify-between gap-1.5 px-3" style={TAB_FACE}>
+        <button type="button" title={mode === -1 ? "Off — pick a filter type to use this band" : label} className="focus-ring flex h-8 w-full items-center justify-between gap-1.5 px-3" style={TAB_FACE}>
           <span className="truncate font-sans text-xs text-[hsl(var(--static))]">{label}</span>
           <ChevronDown className="size-3.5 shrink-0 text-[hsl(var(--static)/0.6)]" />
         </button>

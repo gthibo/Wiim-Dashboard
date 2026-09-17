@@ -37,11 +37,11 @@ better-sqlite3 (users, sessions, devices, settings)
 | `client.ts` | Low-level HTTPS transport: self-signed cert bypass + LinkPlay mTLS, **SSRF guard** (resolve → IP-check → pin), album/preset art fetch policy |
 | `constants.ts` | Command builders + numeric enums (sources, outputs, loop modes, sub ranges) mirrored from the official API / python-linkplay |
 | `commands.ts` | High-level typed functions: `fetchPlayerStatus`, `control`, `setSubwoofer`, `switchSource`, `setOutput`, `fetchPresets`, `playPreset`, `fetchModeRename`, `fetchAudioInputEnable`, `fetchSoundCard`, … + the 30 s preset-list cache |
-| `eq.ts` / `eq-constants.ts` | Per-source **graphic + parametric EQ** over the LV2 API — read/write bands, presets, per-source enable/disable — with a firmware kill-switch |
+| `eq.ts` / `eq-constants.ts` | Per-source **graphic + parametric EQ** over the LV2 API — read/write bands, presets, per-source enable/disable — band letters derived from the device response via `peqLettersFrom` (`PEQ_LETTERS` = accepted a–l set, `PEQ_LETTERS_BASELINE` = always-rendered a–j) — with a firmware kill-switch |
 | `parse.ts` | Tolerant JSON parse, hex decode, HTML-entity decode, status/source/output mappings + the official (asymmetric) read/write loop-mode tables |
 | `now-playing-info.ts` | Best-effort **service + audio-format detection** — the API has no vendor or codec field, so the service comes from the `getPlayerStatusEx` `mode` (Connect/cast codes) or the album-art host, and the codec/quality tier is inferred from bitrate, bit-depth and sample-rate |
 | `upnp.ts` | UPnP/DLNA `AVTransport GetInfoEx` on port 49152 (SSRF-pinned SOAP) — the **primary now-playing metadata source** since 0.3.8. Double-unescapes the DIDL-Lite payload, tolerates attributes on the open tag, and falls back to the standard `<res>` attributes for senders that don't emit WiiM's `song:*` extensions |
-| `capabilities.ts` | Probes a device once and builds its `DeviceCapabilities` (temperature, sub-out, EQ, outputs, sources, preset count) |
+| `capabilities.ts` | Probes a device once and builds its `DeviceCapabilities` (temperature, sub-out, EQ, **acoustics**, outputs, sources, preset count) |
 | `snapshot.ts` | One poll = a parallel `Promise.allSettled` of everything the dashboard needs for a device |
 | `discovery.ts` | SSDP multicast + direct IP-range scan |
 | `linkplay-cert.ts` | The shared public LinkPlay mTLS client cert/key |
