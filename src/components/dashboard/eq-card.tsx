@@ -12,7 +12,7 @@ import { useToast } from "@/components/toast";
 import { useConfirm, usePrompt } from "@/components/modal";
 import { apiGet, apiSend, ApiError } from "@/lib/client/api";
 import { cn } from "@/lib/utils";
-import { GRAPHIC_GAIN, PEQ_RANGE, PEQ_MODES, PEQ_GAIN_INDEPENDENT_MODES, bandColor } from "@/lib/wiim/eq-constants";
+import { GRAPHIC_GAIN, PEQ_RANGE, PEQ_MODES, PEQ_GAIN_INDEPENDENT_MODES, PEQ_LETTERS_BASELINE, bandColor } from "@/lib/wiim/eq-constants";
 import type { EqOverview, EqType, ParametricBand, PeqChannel, PeqChannelMode } from "@/lib/wiim/types";
 
 /**
@@ -511,6 +511,13 @@ function ParametricPanel({
   send: (b: Record<string, unknown>) => Promise<void>;
 }) {
   const LABEL = "shrink-0 font-sans text-[10px] uppercase tracking-[0.15em] text-[hsl(var(--faceplate)/0.55)]";
+  // Clip to functionally-connected bands. WiiM firmware (Ultra 5.2.8x, Pro
+  // 2026-09) answers with 12 letters a–l but only a–j are wired to the DSP
+  // chain — an audible A/B test on the Ultra with L vs D at identical params
+  // confirmed L is silent, D takes. Matches WiiM Home's UI. If future firmware
+  // wires k/l live, drop this filter — `peqLettersFrom` in eq.ts will surface
+  // them and everything downstream handles them cleanly.
+  const visible = bands.filter((b) => PEQ_LETTERS_BASELINE.includes(b.letter));
   return (
     <div className="relative z-10 px-6 pb-6 pt-4">
       <div className="flex items-center gap-4 pb-2">
@@ -524,7 +531,7 @@ function ParametricPanel({
         </div>
       </div>
       <div className="relative flex flex-col gap-4">
-        {bands.map((b) => (
+        {visible.map((b) => (
           <PeqRow key={b.letter} band={b} source={source} channel={channel} send={send} />
         ))}
         {/* Single continuous Q/Gain divider spanning every row, rendered once

@@ -111,7 +111,7 @@ Generic in-app network streaming is **mode `10`/`20`** (and a few neighbours) �
 
 Newer firmware exposes a per-source **LV2** EQ — a 10-band graphic (`Eq10HP`) and a parametric (`EqNp`) — returning real dB/Hz. Plugin URIs: `http://moddevices.com/plugins/caps/Eq10HP` and `…/EqNp`.
 
-The **parametric band count is per firmware, not fixed**: bands `a`–`j` (10) on the firmware this was first mapped on, `a`–`l` (12) on WiiM's mid-2026 firmware. Each band is four `param_name`s — `<letter>_mode`, `_freq`, `_q`, `_gain` — so the dashboard reads the letters out of the response rather than assuming a count (never fewer than 10, so a sparse read can't drop a band).
+The **parametric bands are 10** on all WiiM devices tested (Ultra fw 5.2.8x, Pro at 2026-09 firmware) — the dashboard reads the letters out of the device response (never fewer than 10, so a sparse read can't drop a band) rather than assuming a count, so a hypothetical future firmware that exposes more would extend cleanly through `peqLettersFrom`. Each band is four `param_name`s — `<letter>_mode`, `_freq`, `_q`, `_gain`. **Empirical note (2026-09-17):** both devices' `EQGetLV2SourceBandEx` responses contain 12 letters (a–l), and writes to k/l persist on re-read — but only a–j are wired to the DSP chain. An audible A/B test on the Ultra confirmed it: L @ Peak/250Hz/+9.5dB silent, D @ same clearly audible. The dashboard therefore clips the UI to a–j (see `PEQ_LETTERS_BASELINE` filter in `ParametricPanel`), matching WiiM's own Home app. `GetAcousticCapability` doesn't expose functional band count, so wire-side auto-detection isn't possible.
 
 | Purpose | Command |
 |---|---|
