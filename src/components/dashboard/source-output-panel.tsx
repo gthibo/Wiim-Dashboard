@@ -8,7 +8,6 @@ import {
   Speaker,
   Settings as SettingsIcon,
   ChevronDown,
-  Plus,
   LogOut,
   Check,
   Tag,
@@ -16,6 +15,9 @@ import {
   Globe,
   Wifi,
   Cable,
+  Server,
+  Pencil,
+  X,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
@@ -24,6 +26,7 @@ import { useToast } from "@/components/toast";
 import { apiSend, ApiError } from "@/lib/client/api";
 import { SOURCES, OUTPUTS } from "@/lib/wiim/constants";
 import { cn } from "@/lib/utils";
+import { Input } from "@/components/ui/input";
 import type { DeviceListItem } from "@/lib/client/hooks";
 import type { DeviceInfo } from "@/lib/wiim/types";
 
@@ -35,7 +38,7 @@ import type { DeviceInfo } from "@/lib/wiim/types";
  *
  * Round 25: the DEVICE column is new. It absorbs functionality that used to
  * live in two now-orphaned components:
- *   - app-header.tsx      → device switcher dropdown, Add Device, Settings,
+ *   - app-header.tsx      → device switcher dropdown, Devices, Settings,
  *                            Logout, and the online/offline indicator dot.
  *   - device-info-card.tsx → Model / Firmware / IP / Wi-Fi Signal (or
  *                            Connection: Ethernet) / USB DAC info rows.
@@ -409,7 +412,7 @@ function VSeam() {
 }
 
 /**
- * DEVICE column: header, device switcher, Add Device / Settings / Logout,
+ * DEVICE column: header, device switcher, Devices / Settings / Logout,
  * a multiroom subsection (solo/slave/master — hidden below 2 devices), then
  * a Model/Firmware/IP/Wi-Fi (or Ethernet)/USB-DAC info list — absorbing
  * app-header.tsx + device-info-card.tsx + multiroom-card.tsx, restyled to the
@@ -436,6 +439,22 @@ function DeviceSection({
 }) {
   const selected = devices.find((d) => d.id === selectedId) ?? null;
   const wired = info?.network === "ethernet";
+  const toast = useToast();
+  const [editIp, setEditIp] = useState(false);
+  const [editIpVal, setEditIpVal] = useState("");
+
+  async function saveIp() {
+    const val = editIpVal.trim();
+    if (!val) return;
+    try {
+      await apiSend(`/api/devices/${deviceId}`, "PATCH", { host: val });
+      void apiSend(`/api/devices/${deviceId}/refresh`, "POST").catch(() => {});
+      setEditIp(false);
+      onChanged();
+    } catch (e) {
+      toast((e as ApiError).message || "Could not update IP address", "error");
+    }
+  }
 
   async function logout() {
     try {
@@ -505,11 +524,11 @@ function DeviceSection({
         </DropdownMenu.Portal>
       </DropdownMenu.Root>
 
-      {/* action row — Add Device / Settings / Logout, replacing the header's
+      {/* action row — Devices / Settings / Logout, replacing the header's
           icon-button trio. Each is a raised `.glass` tile (Pass 3). Title
           case (not uppercase) per the mockup. */}
       <div className="mt-4 grid grid-cols-3 gap-3">
-        <DeviceAction href="/devices" icon={<Plus className="size-5" />} label="Add Device" />
+        <DeviceAction href="/devices" icon={<Server className="size-5" />} label="Devices" />
         <DeviceAction href="/settings" icon={<SettingsIcon className="size-5" />} label="Settings" />
         <DeviceAction onClick={logout} icon={<LogOut className="size-5" />} label="Logout" />
       </div>
@@ -534,7 +553,60 @@ function DeviceSection({
           <div className="divide-y divide-[hsl(0_0%_0%/0.4)]">
             <InfoRow icon={<Tag className="size-4" />} label="Model" value={info.model || "—"} />
             <InfoRow icon={<Cpu className="size-4" />} label="Firmware" value={info.firmware || "—"} />
-            <InfoRow icon={<Globe className="size-4" />} label="IP" value={info.ip || "—"} />
+            {editIp ? (
+              <div className="flex items-center justify-between gap-3 py-2.5 text-sm">
+                <span className="flex shrink-0 items-center gap-2 text-[hsl(var(--faceplate)/0.55)]">
+                  <span style={ICON_SHADOW}><Globe className="size-4" /></span>
+                  IP
+                </span>
+                <span className="flex items-center gap-1">
+                  <Input
+                    value={editIpVal}
+                    onChange={(e) => setEditIpVal(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") void saveIp();
+                      if (e.key === "Escape") setEditIp(false);
+                    }}
+                    className="h-6 w-32 px-1.5 font-mono text-xs"
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void saveIp()}
+                    aria-label="Save IP address"
+                    className="focus-ring grid size-5 place-items-center text-[hsl(var(--primary))] transition hover:opacity-80"
+                  >
+                    <Check className="size-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditIp(false)}
+                    aria-label="Cancel"
+                    className="focus-ring grid size-5 place-items-center text-[hsl(var(--faceplate)/0.5)] transition hover:opacity-80"
+                  >
+                    <X className="size-3.5" />
+                  </button>
+                </span>
+              </div>
+            ) : (
+              <InfoRow
+                icon={<Globe className="size-4" />}
+                label="IP"
+                value={
+                  <span className="flex items-center gap-1.5">
+                    <span>{info.ip || "—"}</span>
+                    <button
+                      type="button"
+                      onClick={() => { setEditIpVal(info.ip ?? ""); setEditIp(true); }}
+                      aria-label="Edit IP address"
+                      className="focus-ring grid size-4 place-items-center text-[hsl(var(--faceplate)/0.4)] transition hover:text-[hsl(var(--faceplate)/0.8)]"
+                    >
+                      <Pencil className="size-3" />
+                    </button>
+                  </span>
+                }
+              />
+            )}
             <InfoRow
               icon={wired ? <Cable className="size-4" /> : <Wifi className="size-4" />}
               label={wired ? "Connection" : "Wi-Fi Signal"}
@@ -561,7 +633,7 @@ function DeviceSection({
   );
 }
 
-/** One Add Device / Settings / Logout action — a raised `.glass` tile, icon
+/** One Devices / Settings / Logout action — a raised `.glass` tile, icon
  *  above label, either a nav link (href) or a click handler (onClick). Title
  *  case, not uppercase — matches the mockup. */
 function DeviceAction({
